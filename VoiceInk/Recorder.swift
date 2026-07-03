@@ -114,6 +114,29 @@ class Recorder: NSObject, ObservableObject {
     }
 
     func startRecording(toOutputFile url: URL) async throws {
+        // Request microphone access if it has never been determined (e.g. when
+        // onboarding was skipped). Without this, CoreAudio silently records
+        // all-zero buffers instead of failing.
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .audio)
+            guard granted else {
+                NotificationManager.shared.showNotification(
+                    title: String(localized: "Microphone access denied"),
+                    type: .error
+                )
+                throw RecorderError.couldNotStartRecording
+            }
+        case .denied, .restricted:
+            NotificationManager.shared.showNotification(
+                title: String(localized: "Microphone access denied — enable it in System Settings → Privacy & Security → Microphone"),
+                type: .error
+            )
+            throw RecorderError.couldNotStartRecording
+        default:
+            break
+        }
+
         deviceManager.isRecordingActive = true
 
         let currentDeviceID = deviceManager.getCurrentDevice()

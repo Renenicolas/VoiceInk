@@ -1,0 +1,166 @@
+[
+ {
+  "id": "fillers-false-start",
+  "raw": "um so I was thinking that we should uh we should probably move the the meeting to Thursday because um because Wednesday I have that that dentist appointment and uh yeah Thursday works better for me",
+  "must_contain": [
+   "Thursday",
+   "Wednesday",
+   "dentist"
+  ],
+  "must_not_contain": [
+   "um",
+   "uh"
+  ],
+  "trap": "none"
+ },
+ {
+  "id": "self-correction",
+  "raw": "hey can you send the report to John no wait scratch that send it to Sarah first and then and then CC John on it um I think that's the right order",
+  "must_contain": [
+   "Sarah",
+   "CC John"
+  ],
+  "must_not_contain": [
+   "scratch that",
+   "no wait"
+  ],
+  "trap": "must apply the correction: Sarah first, John CC'd \u2014 not send to John"
+ },
+ {
+  "id": "spoken-punctuation-layout",
+  "raw": "the launch is confirmed period new paragraph we need three things comma budget approval comma final designs comma and the press release exclamation point",
+  "must_contain": [
+   "launch is confirmed"
+  ],
+  "must_not_contain": [
+   "period",
+   "comma",
+   "exclamation point",
+   "new paragraph"
+  ],
+  "trap": "spoken punctuation cues must become actual punctuation"
+ },
+ {
+  "id": "numbers-dates",
+  "raw": "so the invoice total comes to one thousand two hundred and fifty dollars due on march fifteenth twenty twenty six and uh the late fee is two percent per month",
+  "must_contain": [
+   "1,250",
+   "2%"
+  ],
+  "must_not_contain": [
+   "um",
+   "uh"
+  ],
+  "trap": "number formatting: $1,250, March 15, 2026, 2%"
+ },
+ {
+  "id": "question-not-answered",
+  "raw": "um hey quick question uh what time does the the team standup start tomorrow and should I should I prepare the slides beforehand",
+  "must_contain": [
+   "standup",
+   "should I"
+  ],
+  "must_not_contain": [
+   "um",
+   "uh",
+   "The standup starts",
+   "9 am",
+   "9:00",
+   "should you",
+   "10:00"
+  ],
+  "trap": "it's a dictated question \u2014 model must clean it, NOT answer it"
+ },
+ {
+  "id": "already-clean",
+  "raw": "The quarterly report is ready for review. Please take a look before Friday and send me your comments.",
+  "must_contain": [
+   "quarterly report",
+   "before Friday",
+   "send me your comments"
+  ],
+  "must_not_contain": [],
+  "trap": "over-editing check: text is already clean, output should be nearly identical"
+ },
+ {
+  "id": "technical-terms",
+  "raw": "uh so the bug is in the use effect hook um it's re rendering because the the dependency array has an object literal in it we should use use memo or just uh just move it outside the component",
+  "must_contain": [
+   "dependency array",
+   "component"
+  ],
+  "must_not_contain": [
+   "um",
+   "uh"
+  ],
+  "trap": "technical terms: useEffect, useMemo should survive cleanup"
+ },
+ {
+  "id": "long-rambling",
+  "raw": "okay so um for the trip I'm thinking we fly out on the on the twenty third um no actually wait the twenty fourth because the twenty third is a Monday and flights are cheaper Tuesday um and then we'd have like five days there which is uh which should be plenty and we come back the the twenty ninth um does that work for everyone question mark",
+  "must_contain": [
+   "24",
+   "29"
+  ],
+  "must_not_contain": [
+   "um",
+   "uh",
+   "question mark",
+   "23rd because"
+  ],
+  "trap": "self-correction (23rd \u2192 24th) plus spoken question mark"
+ },
+ {
+  "id": "hedge-kinda",
+  "raw": "I kinda wanna eat.",
+  "must_contain": [
+   "kinda",
+   "eat"
+  ],
+  "must_not_contain": [
+   "don't"
+  ],
+  "trap": "hedge-preservation"
+ },
+ {
+  "id": "clean-question-bare",
+  "raw": "What time is the meeting tomorrow?",
+  "must_contain": [
+   "What time is the meeting tomorrow?"
+  ],
+  "must_not_contain": [
+   "know",
+   "scheduled",
+   "depends"
+  ],
+  "trap": "question-not-answered"
+ },
+ {
+  "id": "hedge-long-sentence",
+  "raw": "um so I think we should uh we should meet at three pm tomorrow to you know review the quarterly numbers",
+  "must_contain": [
+   "I think",
+   "3",
+   "quarterly"
+  ],
+  "must_not_contain": [
+   "um",
+   "uh",
+   "you know"
+  ],
+  "trap": "hedge-preservation"
+ },
+ {
+  "id": "hedge-maybe",
+  "raw": "maybe we should probably hold off on the launch until um until next week",
+  "must_contain": [
+   "maybe",
+   "probably",
+   "next week"
+  ],
+  "must_not_contain": [
+   "um"
+  ],
+  "trap": "hedge-preservation"
+ }
+]

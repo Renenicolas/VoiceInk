@@ -1,0 +1,8 @@
+{
+  "cli:/Users/renenicolas/dev/VoiceInk/fm-cleanup/voiceink-fm-cleanup": {
+    "avg_ms": 777.3031874160855,
+    "median_ms": 768.5852920039906,
+    "max_ms": 1291.6489999988698,
+    "fails": 1
+  }
+}
