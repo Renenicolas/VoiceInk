@@ -90,20 +90,53 @@ DOMAIN = "com.prakashjoshipax.VoiceInk"
 PROMPT_ID = "22222222-2222-2222-2222-222222222222"
 MODE_ID = "11111111-1111-1111-1111-111111111111"
 
-custom_prompts = [{
-    "id": PROMPT_ID, "title": "Local Cleanup",
-    "promptText": prompt_text, "useSystemInstructions": False,
-}]
-mode_configs = [{
-    "id": MODE_ID, "name": "Dictation",
-    "isAIEnhancementEnabled": True, "selectedPrompt": PROMPT_ID,
+CASUAL_PROMPT_ID = "33333333-3333-3333-3333-333333333333"
+PRO_PROMPT_ID    = "44444444-4444-4444-4444-444444444444"
+CASUAL_MODE_ID   = "55555555-5555-5555-5555-555555555555"
+PRO_MODE_ID      = "66666666-6666-6666-6666-666666666666"
+
+import os, urllib.request
+def fetch_variant(name, fallback):
+    local = os.path.join(os.path.dirname(sys.argv[1]), name)
+    if os.path.exists(local):
+        return open(local).read().strip()
+    try:
+        return urllib.request.urlopen(
+            "https://raw.githubusercontent.com/Renenicolas/VoiceInk/main/distribution/" + name,
+            timeout=15).read().decode().strip()
+    except Exception:
+        return fallback
+
+casual_text = fetch_variant("cleanup-prompt-casual.txt", prompt_text)
+pro_text = fetch_variant("cleanup-prompt-professional.txt", prompt_text)
+
+custom_prompts = [
+    {"id": PROMPT_ID, "title": "Local Cleanup", "promptText": prompt_text, "useSystemInstructions": False},
+    {"id": CASUAL_PROMPT_ID, "title": "Casual Cleanup", "promptText": casual_text, "useSystemInstructions": False},
+    {"id": PRO_PROMPT_ID, "title": "Professional Cleanup", "promptText": pro_text, "useSystemInstructions": False},
+]
+
+base_mode = {
+    "isAIEnhancementEnabled": True,
     "selectedTranscriptionModelName": "parakeet-tdt-0.6b-v3",
     "isRealtimeTranscriptionEnabled": False,   # batch = full 0.6B accuracy; finalize is ~0.2s anyway
     "selectedLanguage": "en",
     "useClipboardContext": False, "useSelectedTextContext": False, "useScreenCapture": False,
     "selectedAIProvider": "Local CLI",
-    "outputMode": "paste", "isEnabled": True, "isDefault": True,
-}]
+    "outputMode": "paste", "isEnabled": True,
+}
+mode_configs = [
+    dict(base_mode, id=MODE_ID, name="Dictation", selectedPrompt=PROMPT_ID, isDefault=True),
+    dict(base_mode, id=CASUAL_MODE_ID, name="Casual", selectedPrompt=CASUAL_PROMPT_ID, isDefault=False,
+         appConfigs=[{"id":"55555555-0000-4000-8000-000000000001","bundleIdentifier":"com.apple.MobileSMS","appName":"Messages"},
+                     {"id":"55555555-0000-4000-8000-000000000002","bundleIdentifier":"net.whatsapp.WhatsApp","appName":"WhatsApp"}],
+         urlConfigs=[{"id":"55555555-0000-4000-9000-000000000001","url":"web.whatsapp.com"}]),
+    dict(base_mode, id=PRO_MODE_ID, name="Professional", selectedPrompt=PRO_PROMPT_ID, isDefault=False,
+         appConfigs=[{"id":"66666666-0000-4000-8000-000000000001","bundleIdentifier":"com.tinyspeck.slackmacgap","appName":"Slack"},
+                     {"id":"66666666-0000-4000-8000-000000000002","bundleIdentifier":"com.apple.mail","appName":"Mail"}],
+         urlConfigs=[{"id":"66666666-0000-4000-9000-000000000001","url":"mail.google.com"},
+                     {"id":"66666666-0000-4000-9000-000000000002","url":"linkedin.com"}]),
+]
 
 def wd(key, obj):
     subprocess.run(["defaults","write",DOMAIN,key,"-data",json.dumps(obj).encode().hex()], check=True)
