@@ -203,3 +203,21 @@ competed with Chrome/Electron and got paged out. Deep research + plan approved; 
   question-not-answered, already-clean over-editing check, self-corrections, spoken punctuation).
 - Replicates VoiceInk's exact system+user message and Ollama options.
 - Run: python3 run_harness.py   (defaults: llama3.2:3b qwen2.5:3b phi4-mini)
+
+## v7 prompt + Wispr feature parity (2026-07-03 evening)
+- Prompt v7 (1854 chars): compressed rules + full example block incl. "maybe we should
+  probably wait" + leading-hedge rule folded into the hedge bullet. Apple FM harness:
+  36/36 x3 runs, avg 651ms (vs v6.1: 1-in-3 hedge flake, 790ms). Better AND faster.
+  Trimmed-to-1365-chars variant was 533ms but consistently dropped hedges — examples
+  earn their prefill cost.
+- Wispr feature parity via NATIVE VoiceInk features (zero added hot-path latency):
+  Dictionary word replacements = Wispr Snippets+Dictionary (post-ASR string replace,
+  no AI); CustomVocabularyService = "Flow spells the way you do" (vocab injected into
+  cleanup prompt); Mode triggers (app bundle IDs + website URLs) = per-app Styles;
+  cleanup levels = alternate mode prompts. Seeded via sqlite into dictionary.store
+  (Z_ENT 4=WordReplacement, 3=VocabularyWord; bump Z_PRIMARYKEY; backup first):
+  btw→by the way, my email address→renenicolas777@gmail.com; vocab: Rene Nicolas,
+  Kinnect, Higgsfield, Nino, VoiceInk, Wispr Flow.
+- NOT ported (would add latency/AI passes in hot path): screen-capture context
+  (capture+OCR+prompt bloat), auto-cleanup High/Medium rewrite levels as DEFAULT
+  (meaning-alteration risk); Transforms possible later as on-demand second mode.
