@@ -47,6 +47,15 @@ class AIEnhancementService: ObservableObject {
             self.customPrompts = []
         }
 
+        // Seed template prompts added after this install onboarded, then retrofit their starter
+        // modes. Property didSet does not fire during init, so persist explicitly.
+        let seedResult = StarterModePromptSeeder.ensurePrompts(for: StarterModeKind.allCases, in: customPrompts)
+        if seedResult.didChange {
+            self.customPrompts = seedResult.prompts
+            savePrompts()
+        }
+        StarterModeFactory.ensureInstalled()
+
         repairModePromptSelections()
 
         NotificationCenter.default.addObserver(

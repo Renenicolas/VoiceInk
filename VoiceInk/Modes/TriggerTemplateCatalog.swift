@@ -94,6 +94,10 @@ enum TriggerTemplateCatalog {
                 .init(bundleIdentifier: "ai.jan", names: ["Jan"]),
                 .init(bundleIdentifier: "com.msty.app", names: ["Msty"]),
                 .init(bundleIdentifier: "com.microsoft.VSCode", names: ["Visual Studio Code", "Code"]),
+                .init(bundleIdentifier: "com.apple.Terminal", names: ["Terminal"]),
+                .init(bundleIdentifier: "com.googlecode.iterm2", names: ["iTerm", "iTerm2"]),
+                .init(bundleIdentifier: "dev.warp.Warp-Stable", names: ["Warp"]),
+                .init(bundleIdentifier: "com.mitchellh.ghostty", names: ["Ghostty"]),
                 .init(bundleIdentifier: "com.jetbrains.intellij", names: ["IntelliJ IDEA"]),
                 .init(bundleIdentifier: "com.jetbrains.WebStorm", names: ["WebStorm"]),
                 .init(bundleIdentifier: "com.jetbrains.pycharm", names: ["PyCharm"])

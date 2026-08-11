@@ -4,6 +4,12 @@ import Foundation
 enum StarterModeFactory {
     static let defaultTranscriptionModelName = "parakeet-tdt-0.6b-v3"
 
+    private static let triggerTemplateIds: [StarterModeKind: String] = [
+        .email: "email",
+        .prompt: "ai",
+        .chat: "chat"
+    ]
+
     static func install(
         kinds: [StarterModeKind],
         provider: AIProvider,
@@ -15,7 +21,7 @@ enum StarterModeFactory {
     ) {
         let manager = ModeManager.shared
         let requestedKinds = Set(kinds)
-        let availableInstalledApps = requestedKinds.contains(.email)
+        let availableInstalledApps = requestedKinds.contains(where: { triggerTemplateIds[$0] != nil })
             ? (installedApps ?? InstalledApps.load())
             : []
 
@@ -100,12 +106,12 @@ enum StarterModeFactory {
         for kind: StarterModeKind,
         installedApps: [InstalledAppInfo]
     ) -> [ModeTriggerGroup]? {
-        guard kind == .email,
-              let emailTemplate = TriggerTemplateCatalog.templates.first(where: { $0.id == "email" }) else {
+        guard let templateId = triggerTemplateIds[kind],
+              let template = TriggerTemplateCatalog.templates.first(where: { $0.id == templateId }) else {
             return nil
         }
 
-        let group = emailTemplate.availableGroup(
+        let group = template.availableGroup(
             installedApps: installedApps,
             existingAppBundleIds: [],
             existingWebsites: [],
@@ -113,6 +119,55 @@ enum StarterModeFactory {
         )
 
         return group.isEmpty ? nil : [group]
+    }
+
+    /// Appends any starter modes missing from an already-onboarded install (new modes shipped
+    /// after the user finished onboarding). No-op before onboarding so onboarding owns first setup.
+    static func ensureInstalled() {
+        let manager = ModeManager.shared
+        guard manager.configurations.contains(where: { StarterModeCatalog.ids.contains($0.id) }) else {
+            return
+        }
+
+        let existingIds = Set(manager.configurations.map(\.id))
+        let missing = StarterModeCatalog.templates.filter { !existingIds.contains($0.id) }
+        guard !missing.isEmpty else { return }
+
+        // New AI modes route through the local `claude` CLI (user's Claude subscription, no API
+        // key) by default; per-mode provider stays user-editable. Configure the CLI if unset.
+        let defaults = UserDefaults.standard
+        if (defaults.string(forKey: LocalCLIService.commandTemplateKey) ?? "").isEmpty {
+            defaults.set(LocalCLITemplate.claude.commandTemplate, forKey: LocalCLIService.commandTemplateKey)
+            defaults.set(LocalCLITemplate.claude.rawValue, forKey: LocalCLIService.selectedTemplateKey)
+        }
+
+        let transcriptionReference = manager.configurations.first { $0.selectedTranscriptionModelName != nil }
+        let installedApps = missing.contains(where: { triggerTemplateIds[$0.kind] != nil })
+            ? InstalledApps.load()
+            : []
+
+        for template in missing {
+            let config = ModeConfig(
+                id: template.id,
+                name: template.name,
+                icon: template.icon,
+                triggerGroups: triggerGroups(for: template.kind, installedApps: installedApps),
+                isAIEnhancementEnabled: template.usesAIEnhancement,
+                selectedPrompt: template.promptId?.uuidString,
+                selectedTranscriptionModelName: transcriptionReference?.selectedTranscriptionModelName ?? defaultTranscriptionModelName,
+                isRealtimeTranscriptionEnabled: transcriptionReference?.isRealtimeTranscriptionEnabled ?? true,
+                selectedLanguage: transcriptionReference?.selectedLanguage ?? "auto",
+                useClipboardContext: template.kind == .email,
+                useSelectedTextContext: template.useSelectedTextContext,
+                useScreenCapture: template.useScreenCapture,
+                isTextFormattingEnabled: true,
+                selectedAIProvider: template.usesAIEnhancement ? AIProvider.localCLI.rawValue : nil,
+                selectedAIModel: nil,
+                outputMode: template.outputMode,
+                isDefault: false
+            )
+            manager.addConfiguration(config)
+        }
     }
 
 }

@@ -6,6 +6,9 @@ enum StarterModeKind: String, CaseIterable, Identifiable {
     case email
     case rewrite
     case assistant
+    case prompt
+    case chat
+    case liveAnswers
 
     var id: String { rawValue }
 }
@@ -112,6 +115,48 @@ enum StarterModeCatalog {
             outputMode: .respond,
             usesAIEnhancement: true,
             useSelectedTextContext: false,
+            useScreenCapture: false,
+            isDefault: false
+        ),
+        StarterModeTemplate(
+            kind: .prompt,
+            id: UUID(uuidString: "10000000-0000-0000-0000-000000000006")!,
+            name: "Prompt Architect",
+            icon: .symbol("wand.and.stars"),
+            description: "Turn messy spoken thoughts into a structured AI prompt.",
+            guidance: "Use this in Claude, ChatGPT, Cursor, or your terminal. Ramble, backtrack, change your mind — a clean, structured prompt lands at your cursor, ready to send.",
+            promptId: PromptTemplates.promptArchitectPromptId,
+            outputMode: .paste,
+            usesAIEnhancement: true,
+            useSelectedTextContext: true,
+            useScreenCapture: true,
+            isDefault: false
+        ),
+        StarterModeTemplate(
+            kind: .chat,
+            id: UUID(uuidString: "10000000-0000-0000-0000-000000000007")!,
+            name: "Chat",
+            icon: .symbol("bubble.left.and.text.bubble.right.fill"),
+            description: "Say the gist. Send a polished message in your tone.",
+            guidance: "Use this in Slack, Discord, WhatsApp, and other messengers. Speak a rough thought and a clean, send-ready message lands at your cursor.",
+            promptId: PromptTemplates.chatPromptId,
+            outputMode: .paste,
+            usesAIEnhancement: true,
+            useSelectedTextContext: true,
+            useScreenCapture: false,
+            isDefault: false
+        ),
+        StarterModeTemplate(
+            kind: .liveAnswers,
+            id: UUID(uuidString: "10000000-0000-0000-0000-000000000008")!,
+            name: "Answers Live",
+            icon: .symbol("globe.badge.chevron.backward"),
+            description: "Ask anything — searches the web when freshness matters.",
+            guidance: "Use this for questions about current events, prices, schedules, or anything recent. The answer stays in the recorder, with live web results when needed.",
+            promptId: PromptTemplates.liveAnswersPromptId,
+            outputMode: .respond,
+            usesAIEnhancement: true,
+            useSelectedTextContext: true,
             useScreenCapture: false,
             isDefault: false
         )
