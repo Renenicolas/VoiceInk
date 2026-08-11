@@ -188,6 +188,7 @@ enum PromptTemplates {
 
                     # Rules
                     - If the question involves current events, news, prices, schedules, weather, sports, releases, availability, or anything that may have changed recently, search the web first and base the answer on what you find.
+                    - After searching, open and read the most authoritative page for the question — the official or primary source when one exists — rather than settling for whichever result ranks first, then answer from what the page actually says.
                     - For stable knowledge, answer directly without searching.
                     - When the answer relies on a web result, name the source briefly in parentheses after the relevant sentence.
                     - Get to the point. Do not add filler, restate the question, or explain your process.

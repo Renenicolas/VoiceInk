@@ -67,7 +67,7 @@ struct VoiceInkApp: App {
                 DispatchQueue.main.async {
                     let alert = NSAlert()
                     alert.messageText = String(localized: "Storage Warning")
-                    alert.informativeText = String(localized: "VoiceInk couldn't access its storage location. Your transcriptions will not be saved between sessions.")
+                    alert.informativeText = String(localized: "Nino Voice couldn't access its storage location. Your transcriptions will not be saved between sessions.")
                     alert.alertStyle = .warning
                     alert.addButton(withTitle: String(localized: "OK"))
                     alert.runModal()

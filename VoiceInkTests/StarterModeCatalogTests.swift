@@ -35,6 +35,6 @@ struct StarterModeCatalogTests {
     }
 
     @Test func claudeCLITemplateAllowsWebSearch() {
-        #expect(LocalCLITemplate.claude.commandTemplate.contains("--allowedTools=WebSearch"))
+        #expect(LocalCLITemplate.claude.commandTemplate.contains("--allowedTools=WebSearch,WebFetch"))
     }
 }

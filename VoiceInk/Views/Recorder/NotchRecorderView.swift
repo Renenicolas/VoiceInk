@@ -196,7 +196,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     private var liveTextPanel: some View {
         VStack(spacing: 0) {
             if displayState == .liveText {
-                Divider().background(Color.white.opacity(0.15))
+                Divider().background(Color(red: 0.957, green: 0.945, blue: 0.918).opacity(0.10))
                 LiveTranscriptView(text: stateProvider.partialTranscript)
                     .padding(.horizontal, 8)
             }
@@ -208,7 +208,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     private var assistantPanel: some View {
         VStack(spacing: 0) {
             if displayState == .assistant {
-                Divider().background(Color.white.opacity(0.15))
+                Divider().background(Color(red: 0.957, green: 0.945, blue: 0.918).opacity(0.10))
                 AssistantPanelView(
                     session: assistantSession,
                     liveFollowUpText: liveAssistantFollowUpText,
