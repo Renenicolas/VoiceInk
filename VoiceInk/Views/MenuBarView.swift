@@ -9,6 +9,7 @@ struct MenuBarView: View {
     @EnvironmentObject var recordingShortcutManager: RecordingShortcutManager
     @EnvironmentObject var menuBarManager: MenuBarManager
     @EnvironmentObject var updaterViewModel: UpdaterViewModel
+    @EnvironmentObject var updateCheckService: UpdateCheckService
     @EnvironmentObject var enhancementService: AIEnhancementService
     @EnvironmentObject var aiService: AIService
     @ObservedObject private var modeManager = ModeManager.shared
@@ -144,6 +145,12 @@ struct MenuBarView: View {
                 menuBarManager.openMainWindowAndNavigate(to: "Settings")
             }
             .keyboardShortcut(",", modifiers: .command)
+
+            if let update = updateCheckService.availableUpdate {
+                Button("Update available — Download (v\(update.version))") {
+                    updateCheckService.openDownloadPage()
+                }
+            }
 
             Button("Check for Updates") {
                 updaterViewModel.checkForUpdates()

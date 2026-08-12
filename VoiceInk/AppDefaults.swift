@@ -19,6 +19,7 @@ enum AppDefaults {
             "hasCompletedOnboardingV2": false,
             "hasPreparedOnboardingV2": false,
             "enableAnnouncements": true,
+            UpdateCheckService.enabledDefaultsKey: true,
 
             // Clipboard
             "restoreClipboardAfterPaste": true,

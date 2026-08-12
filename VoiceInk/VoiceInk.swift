@@ -20,6 +20,7 @@ struct VoiceInkApp: App {
     @StateObject private var updaterViewModel: UpdaterViewModel
     @StateObject private var menuBarManager: MenuBarManager
     @StateObject private var aiService = AIService()
+    @StateObject private var updateCheckService = UpdateCheckService.shared
     @StateObject private var enhancementService: AIEnhancementService
     @StateObject private var activeWindowService = ActiveWindowService.shared
     @AppStorage("hasCompletedOnboardingV2") private var hasCompletedOnboardingV2 = false
@@ -285,11 +286,14 @@ struct VoiceInkApp: App {
                         .environmentObject(menuBarManager)
                         .environmentObject(aiService)
                         .environmentObject(enhancementService)
+                        .environmentObject(updateCheckService)
                         .modelContainer(container)
                         .onAppear {
                             if enableAnnouncements {
                                 AnnouncementsService.shared.start()
                             }
+
+                            UpdateCheckService.shared.checkOnLaunchIfNeeded()
 
                             showAccessibilityReminderIfNeeded()
 
@@ -359,6 +363,7 @@ struct VoiceInkApp: App {
                 .environmentObject(updaterViewModel)
                 .environmentObject(aiService)
                 .environmentObject(enhancementService)
+                .environmentObject(updateCheckService)
         } label: {
             let image: NSImage = {
                 let ratio = $0.size.height / $0.size.width
