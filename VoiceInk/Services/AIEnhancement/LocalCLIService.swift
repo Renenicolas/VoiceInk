@@ -22,7 +22,13 @@ enum LocalCLITemplate: String, CaseIterable, Identifiable {
         case .pi:
             return "pi -ne -ns -p --no-tools --system-prompt \"$VOICEINK_SYSTEM_PROMPT\" \"$VOICEINK_USER_PROMPT\""
         case .claude:
-            return "claude -p --allowedTools=WebSearch,WebFetch \"$VOICEINK_FULL_PROMPT\""
+            // No --allowedTools and no positional prompt: the full prompt already goes to
+            // stdin unconditionally (see executeCommand), and this is the safe default used
+            // as the global template (including plain clean/enhance/rewrite dictation) and
+            // whenever a user picks "Claude" from the template picker. The web-search-enabled
+            // variant lives separately in StarterModeFactory.claudeLiveWebCommandTemplate,
+            // used only as the explicit per-mode override for modes that need live web access.
+            return "claude -p"
         case .codex:
             return "TMPFILE=$(mktemp) && codex exec --skip-git-repo-check --output-last-message \"$TMPFILE\" \"$VOICEINK_FULL_PROMPT\" > /dev/null 2>&1 && cat \"$TMPFILE\" && rm \"$TMPFILE\""
         case .copilot:
@@ -97,6 +103,13 @@ final class LocalCLIService {
         )
     }
 
+    /// Whether a local-CLI command string grants live network access (web search/fetch).
+    /// Used to gate accumulated per-app style memory (PerAppStyleMemory) out of prompts that
+    /// will run through a network-capable tool — see AIEnhancementService.styleMemorySection.
+    static func commandGrantsNetworkTools(_ command: String) -> Bool {
+        command.contains("WebSearch") || command.contains("WebFetch")
+    }
+
     static func makeFullPrompt(systemPrompt: String, userPrompt: String) -> String {
         // Defense in depth: systemPrompt/userPrompt are expected to already be sanitized by
         // their callers, but this is the last stop before the prompt reaches the CLI, so
@@ -131,9 +144,20 @@ final class LocalCLIService {
 
                 var environment = ProcessInfo.processInfo.environment
                 environment["PATH"] = ShellCommandEnvironment.preferredPATH(fallback: environment["PATH"])
-                environment["VOICEINK_SYSTEM_PROMPT"] = systemPrompt
-                environment["VOICEINK_USER_PROMPT"] = userPrompt
-                environment["VOICEINK_FULL_PROMPT"] = fullPrompt
+                // Only set the env vars a given command template actually substitutes (M1):
+                // the full prompt already reaches the child process via stdin below regardless,
+                // so a template that doesn't reference these placeholders (e.g. the default
+                // `claude -p`) never puts the prompt in this process's environment at all —
+                // env is world-readable to other processes/users via `ps -E` on macOS.
+                if commandTemplate.contains("$VOICEINK_SYSTEM_PROMPT") {
+                    environment["VOICEINK_SYSTEM_PROMPT"] = systemPrompt
+                }
+                if commandTemplate.contains("$VOICEINK_USER_PROMPT") {
+                    environment["VOICEINK_USER_PROMPT"] = userPrompt
+                }
+                if commandTemplate.contains("$VOICEINK_FULL_PROMPT") {
+                    environment["VOICEINK_FULL_PROMPT"] = fullPrompt
+                }
                 process.environment = environment
 
                 let inputPipe = Pipe()

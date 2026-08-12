@@ -60,13 +60,28 @@ enum StarterModeFactory {
         }
     }
 
+    /// Web-search-enabled `claude` invocation, used ONLY as the explicit per-mode override
+    /// below — never as the default/global template (see LocalCLITemplate.claude, which is
+    /// deliberately tools-off so plain dictation cleanup never reaches a network-capable CLI).
+    /// No positional prompt arg: stdin already carries it (LocalCLIService.executeCommand).
+    static let claudeLiveWebCommandTemplate = "claude -p --allowedTools=WebSearch,WebFetch"
+
     /// Per-mode CLI command override for seeded starter modes. Modes that benefit from
     /// live web access (prompts destined for other tools, chat, email, assistant Q&A,
-    /// live answers) route through `claude` regardless of the user's global Local CLI
-    /// template; the plain transcription-cleanup modes keep using that global template.
+    /// live answers) route through `claude` with web tools regardless of the user's global
+    /// Local CLI template; the plain transcription-cleanup modes keep using that global
+    /// template (tools-off by default).
     static func claudeOverride(for kind: StarterModeKind) -> String? {
         switch kind {
-        case .prompt, .chat, .email, .assistant, .liveAnswers:
+        // Modes whose purpose is live information (Q&A / web answers) get web tools — they
+        // produce answers, not the user's own writing, so per-app style memory is intentionally
+        // withheld from them (see AIEnhancementService styleMemoryAllowed).
+        case .assistant, .liveAnswers:
+            return claudeLiveWebCommandTemplate
+        // Style-paste modes (prompt-shaping, chat, email) route through tools-off `claude` so the
+        // per-app learned-voice memory is allowed to shape them — this is the flagship case
+        // (e.g. matching how the user writes emails in a given app) — with no network egress.
+        case .prompt, .chat, .email:
             return LocalCLITemplate.claude.commandTemplate
         case .clean, .enhance, .rewrite:
             return nil

@@ -34,16 +34,40 @@ struct StarterModeCatalogTests {
         #expect(TriggerTemplateCatalog.templates.contains { $0.id == "chat" })
     }
 
-    @Test func claudeCLITemplateAllowsWebSearch() {
-        #expect(LocalCLITemplate.claude.commandTemplate.contains("--allowedTools=WebSearch,WebFetch"))
+    /// The default/global `claude` template is deliberately tools-off (H1): plain
+    /// clean/enhance/rewrite dictation, and any user who picks "Claude" from the template
+    /// picker for everyday use, must never reach a network-capable CLI by default.
+    @Test func claudeCLITemplateHasNoNetworkTools() {
+        #expect(!LocalCLITemplate.claude.commandTemplate.contains("--allowedTools"))
     }
 
-    @Test func seededModesThatBenefitFromWebGetClaudeOverride() {
-        let webKinds: Set<StarterModeKind> = [.prompt, .chat, .email, .assistant, .liveAnswers]
+    @Test func liveInfoModesGetWebToolsAndNoStyleMemory() {
+        // Q&A / web-answer modes get web tools; style memory is withheld from them by design.
+        let webKinds: Set<StarterModeKind> = [.assistant, .liveAnswers]
         for kind in webKinds {
             #expect(
+                StarterModeFactory.claudeOverride(for: kind) == StarterModeFactory.claudeLiveWebCommandTemplate,
+                "\(kind) should route through the web-search-enabled claude CLI override"
+            )
+            #expect(
+                StarterModeFactory.claudeOverride(for: kind)?.contains("--allowedTools=WebSearch,WebFetch") == true,
+                "\(kind) should have web search tools enabled"
+            )
+        }
+    }
+
+    @Test func stylePasteModesUseToolsOffClaudeSoStyleMemoryApplies() {
+        // prompt/chat/email route through tools-off `claude` (no web egress) so per-app learned
+        // style memory is allowed to shape them — and must NOT carry web tools.
+        let styleKinds: Set<StarterModeKind> = [.prompt, .chat, .email]
+        for kind in styleKinds {
+            #expect(
                 StarterModeFactory.claudeOverride(for: kind) == LocalCLITemplate.claude.commandTemplate,
-                "\(kind) should route through the claude CLI override"
+                "\(kind) should route through tools-off claude so style memory applies"
+            )
+            #expect(
+                StarterModeFactory.claudeOverride(for: kind)?.contains("--allowedTools") == false,
+                "\(kind) must not have web tools (style memory would be withheld)"
             )
         }
     }

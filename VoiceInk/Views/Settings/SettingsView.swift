@@ -21,7 +21,9 @@ struct SettingsView: View {
     @AppStorage(AppAppearancePreference.userDefaultsKey) private var appAppearancePreference = AppAppearancePreference.system
     @AppStorage(AppLanguagePreference.userDefaultsKey) private var appLanguagePreference = AppLanguagePreference.systemValue
     @AppStorage(RecorderDisplaySettingsKeys.showLiveTranscript) private var showLiveTranscript = true
+    @AppStorage(PerAppStyleMemory.isEnabledKey) private var isPerAppStyleMemoryEnabled = true
     @State private var showResetOnboardingAlert = false
+    @State private var showClearLearnedStylesAlert = false
     @State private var showLanguageRestartAlert = false
     @State private var hasCancelRecordingShortcut = ShortcutStore.shortcut(for: .cancelRecorder) != nil
     @State private var cancelRecordingShortcutRecorderResetID = 0
@@ -244,6 +246,22 @@ struct SettingsView: View {
                         }
                     }
 
+                Toggle(isOn: $isPerAppStyleMemoryEnabled) {
+                    HStack(spacing: 4) {
+                        Text("Learn my style per app (stored encrypted on this device)")
+                        InfoTip("Nino Voice remembers how you write in each app and nudges future AI dictations to match. Stored locally, encrypted at rest, and never sent over the network.")
+                    }
+                }
+
+                HStack {
+                    Text("Learned styles are stored per app on this device only.")
+                        .settingsDescription()
+                    Spacer()
+                    Button("Clear Learned Styles", role: .destructive) {
+                        showClearLearnedStylesAlert = true
+                    }
+                }
+
                 HStack {
                     Button("Check for Updates") {
                         updaterViewModel.checkForUpdates()
@@ -311,6 +329,14 @@ struct SettingsView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("Your language change will take full effect after you quit and reopen Nino Voice.")
+        }
+        .alert("Clear Learned Styles", isPresented: $showClearLearnedStylesAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Clear", role: .destructive) {
+                PerAppStyleMemory.shared.clearAll()
+            }
+        } message: {
+            Text("This removes every app's learned writing style from this device. This can't be undone.")
         }
     }
 
