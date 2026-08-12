@@ -616,8 +616,8 @@ class AIService: ObservableObject {
         refreshLocalCLIConfigurationState()
     }
 
-    func enhanceWithLocalCLI(systemPrompt: String, userPrompt: String) async throws -> String {
-        try await localCLIService.enhance(systemPrompt: systemPrompt, userPrompt: userPrompt)
+    func enhanceWithLocalCLI(systemPrompt: String, userPrompt: String, commandOverride: String? = nil) async throws -> String {
+        try await localCLIService.enhance(systemPrompt: systemPrompt, userPrompt: userPrompt, commandOverride: commandOverride)
     }
 
     private func refreshLocalCLIConfigurationState() {

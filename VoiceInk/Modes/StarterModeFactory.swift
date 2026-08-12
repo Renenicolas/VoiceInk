@@ -60,6 +60,19 @@ enum StarterModeFactory {
         }
     }
 
+    /// Per-mode CLI command override for seeded starter modes. Modes that benefit from
+    /// live web access (prompts destined for other tools, chat, email, assistant Q&A,
+    /// live answers) route through `claude` regardless of the user's global Local CLI
+    /// template; the plain transcription-cleanup modes keep using that global template.
+    static func claudeOverride(for kind: StarterModeKind) -> String? {
+        switch kind {
+        case .prompt, .chat, .email, .assistant, .liveAnswers:
+            return LocalCLITemplate.claude.commandTemplate
+        case .clean, .enhance, .rewrite:
+            return nil
+        }
+    }
+
     static func isInstalled(kind: StarterModeKind) -> Bool {
         guard let template = StarterModeCatalog.templates.first(where: { $0.kind == kind }) else {
             return false
@@ -122,10 +135,12 @@ enum StarterModeFactory {
     }
 
     /// Appends any starter modes missing from an already-onboarded install (new modes shipped
-    /// after the user finished onboarding). No-op before onboarding so onboarding owns first setup.
+    /// after the user finished onboarding, or an install that predates the starter catalog
+    /// entirely). No-op before onboarding so onboarding owns first setup.
     static func ensureInstalled() {
         let manager = ModeManager.shared
-        guard manager.configurations.contains(where: { StarterModeCatalog.ids.contains($0.id) }) else {
+        let onboarded = UserDefaults.standard.bool(forKey: "hasCompletedOnboardingV2")
+        guard onboarded || manager.configurations.contains(where: { StarterModeCatalog.ids.contains($0.id) }) else {
             return
         }
 
@@ -164,6 +179,7 @@ enum StarterModeFactory {
                 selectedAIProvider: template.usesAIEnhancement ? AIProvider.localCLI.rawValue : nil,
                 selectedAIModel: nil,
                 outputMode: template.outputMode,
+                localCLICommandOverride: template.usesAIEnhancement ? claudeOverride(for: template.kind) : nil,
                 isDefault: false
             )
             manager.addConfiguration(config)

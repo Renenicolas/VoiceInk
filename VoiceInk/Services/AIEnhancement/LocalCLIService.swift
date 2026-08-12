@@ -79,14 +79,17 @@ final class LocalCLIService {
         commandTemplate = template.commandTemplate
     }
 
-    func enhance(systemPrompt: String, userPrompt: String) async throws -> String {
-        guard isConfigured else {
+    func enhance(systemPrompt: String, userPrompt: String, commandOverride: String? = nil) async throws -> String {
+        let trimmedOverride = commandOverride?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let effectiveCommand = (trimmedOverride?.isEmpty == false) ? trimmedOverride! : commandTemplate
+
+        guard !effectiveCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw LocalCLIError.commandNotConfigured
         }
 
         let fullPrompt = Self.makeFullPrompt(systemPrompt: systemPrompt, userPrompt: userPrompt)
         return try await executeCommand(
-            commandTemplate: commandTemplate,
+            commandTemplate: effectiveCommand,
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
             fullPrompt: fullPrompt,
@@ -95,15 +98,20 @@ final class LocalCLIService {
     }
 
     static func makeFullPrompt(systemPrompt: String, userPrompt: String) -> String {
-        """
+        // Defense in depth: systemPrompt/userPrompt are expected to already be sanitized by
+        // their callers, but this is the last stop before the prompt reaches the CLI, so
+        // sanitize again here too. Idempotent — a no-op if the input is already sanitized.
+        let safeSystemPrompt = PromptTagSanitizer.sanitize(systemPrompt)
+        let safeUserPrompt = PromptTagSanitizer.sanitize(userPrompt)
+        return """
         # System Message
         <SYSTEM_MESSAGE>
-        \(systemPrompt)
+        \(safeSystemPrompt)
         </SYSTEM_MESSAGE>
 
         # User Message Payload
         <USER_MESSAGE_PAYLOAD>
-        \(userPrompt)
+        \(safeUserPrompt)
         </USER_MESSAGE_PAYLOAD>
         """
     }

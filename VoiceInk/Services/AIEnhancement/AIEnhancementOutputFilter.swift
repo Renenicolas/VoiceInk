@@ -15,7 +15,14 @@ struct AIEnhancementOutputFilter {
                 processedText = regex.stringByReplacingMatches(in: processedText, options: [], range: range, withTemplate: "")
             }
         }
-        
+
+        // PromptTagSanitizer inserts zero-width spaces (U+200B) into the transcript/context
+        // before it reaches the model. In clean/rewrite/enhance modes the model largely echoes
+        // its input, so those invisible characters can survive into the pasted result and
+        // silently corrupt copied code/text. Strip them from the final output; they only ever
+        // existed as an input-side defense, never as intentional content.
+        processedText = processedText.replacingOccurrences(of: "\u{200B}", with: "")
+
         return processedText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 } 

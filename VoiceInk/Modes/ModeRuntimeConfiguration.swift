@@ -35,6 +35,7 @@ struct EnhancementRuntimeConfiguration {
     let useClipboardContext: Bool
     let useSelectedTextContext: Bool
     let useScreenCaptureContext: Bool
+    let localCLICommandOverride: String?
 
     func replacingPrompt(_ prompt: CustomPrompt) -> EnhancementRuntimeConfiguration {
         EnhancementRuntimeConfiguration(
@@ -45,7 +46,8 @@ struct EnhancementRuntimeConfiguration {
             modelName: modelName,
             useClipboardContext: useClipboardContext,
             useSelectedTextContext: useSelectedTextContext,
-            useScreenCaptureContext: useScreenCaptureContext
+            useScreenCaptureContext: useScreenCaptureContext,
+            localCLICommandOverride: localCLICommandOverride
         )
     }
 }
@@ -122,7 +124,8 @@ enum ModeRuntimeResolver {
             modelName: modelName,
             useClipboardContext: mode?.useClipboardContext ?? false,
             useSelectedTextContext: mode?.useSelectedTextContext ?? true,
-            useScreenCaptureContext: mode?.useScreenCapture ?? false
+            useScreenCaptureContext: mode?.useScreenCapture ?? false,
+            localCLICommandOverride: mode?.localCLICommandOverride
         )
     }
 

@@ -402,6 +402,14 @@ class UpdaterViewModel: ObservableObject {
     init() {
         updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
+        // F8 hardening: force scheduled/automatic update checks off in code, not just in
+        // Info.plist. Sparkle persists `automaticallyChecksForUpdates` in UserDefaults, so a
+        // value left over from a prior build (or a future accidental Info.plist revert) could
+        // otherwise re-enable phoning home to a third party's update server. Manual
+        // "Check for Updates…" (below) is unaffected.
+        updaterController.updater.automaticallyChecksForUpdates = false
+        updaterController.updater.updateCheckInterval = 0
+
         automaticallyChecksForUpdates = updaterController.updater.automaticallyChecksForUpdates
 
         updaterController.updater.publisher(for: \.canCheckForUpdates)

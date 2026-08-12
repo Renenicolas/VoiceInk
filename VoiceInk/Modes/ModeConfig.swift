@@ -87,9 +87,13 @@ struct ModeConfig: Codable, Identifiable, Equatable {
     var customCommand: ModeCustomCommand?
     var isEnabled: Bool = true
     var isDefault: Bool = false
+    /// Per-mode override for the Local CLI command, used instead of the user's global
+    /// `LocalCLIService.commandTemplate` when set. Nil means "use the global template" —
+    /// this keeps older JSON (and modes that never set it) behaving exactly as before.
+    var localCLICommandOverride: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, icon, appConfigs, urlConfigs, triggerGroups, triggerWords, isAIEnhancementEnabled, selectedPrompt, isRealtimeTranscriptionEnabled, selectedLanguage, isTextFormattingEnabled, useClipboardContext, useSelectedTextContext, useScreenCapture, selectedAIProvider, selectedAIModel, outputMode, isAutoSendEnabled, autoSendKey, customCommand, isEnabled, isDefault
+        case id, name, icon, appConfigs, urlConfigs, triggerGroups, triggerWords, isAIEnhancementEnabled, selectedPrompt, isRealtimeTranscriptionEnabled, selectedLanguage, isTextFormattingEnabled, useClipboardContext, useSelectedTextContext, useScreenCapture, selectedAIProvider, selectedAIModel, outputMode, isAutoSendEnabled, autoSendKey, customCommand, isEnabled, isDefault, localCLICommandOverride
         case legacyEmoji = "emoji"
         case selectedWhisperModel
         case selectedTranscriptionModelName
@@ -99,7 +103,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
          urlConfigs: [URLConfig]? = nil, triggerGroups: [ModeTriggerGroup]? = nil, triggerWords: [String] = [],
          isAIEnhancementEnabled: Bool, selectedPrompt: String? = nil,
          selectedTranscriptionModelName: String? = nil, isRealtimeTranscriptionEnabled: Bool = true, selectedLanguage: String? = nil, useClipboardContext: Bool = false, useSelectedTextContext: Bool = true, useScreenCapture: Bool = false,
-         isTextFormattingEnabled: Bool = false, selectedAIProvider: String? = nil, selectedAIModel: String? = nil, outputMode: ModeOutputMode = .paste, autoSendKey: AutoSendKey = .none, customCommand: ModeCustomCommand? = nil, isEnabled: Bool = true, isDefault: Bool = false) {
+         isTextFormattingEnabled: Bool = false, selectedAIProvider: String? = nil, selectedAIModel: String? = nil, outputMode: ModeOutputMode = .paste, localCLICommandOverride: String? = nil, autoSendKey: AutoSendKey = .none, customCommand: ModeCustomCommand? = nil, isEnabled: Bool = true, isDefault: Bool = false) {
         self.id = id
         self.name = name
         self.icon = icon
@@ -117,6 +121,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         self.customCommand = customCommand
         self.selectedAIProvider = selectedAIProvider
         self.selectedAIModel = selectedAIModel
+        self.localCLICommandOverride = localCLICommandOverride
         self.selectedTranscriptionModelName = selectedTranscriptionModelName
         self.isRealtimeTranscriptionEnabled = isRealtimeTranscriptionEnabled
         self.selectedLanguage = selectedLanguage ?? "en"
@@ -168,6 +173,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         useScreenCapture = try container.decodeIfPresent(Bool.self, forKey: .useScreenCapture) ?? UserDefaults.standard.bool(forKey: "useScreenCaptureContext")
         selectedAIProvider = try container.decodeIfPresent(String.self, forKey: .selectedAIProvider)
         selectedAIModel = try container.decodeIfPresent(String.self, forKey: .selectedAIModel)
+        localCLICommandOverride = try container.decodeIfPresent(String.self, forKey: .localCLICommandOverride)
         outputMode = try container.decodeIfPresent(ModeOutputMode.self, forKey: .outputMode) ?? .paste
         customCommand = try container.decodeIfPresent(ModeCustomCommand.self, forKey: .customCommand)
         // Migrate from old isAutoSendEnabled bool to new autoSendKey enum
@@ -210,6 +216,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         try container.encode(useScreenCapture, forKey: .useScreenCapture)
         try container.encodeIfPresent(selectedAIProvider, forKey: .selectedAIProvider)
         try container.encodeIfPresent(selectedAIModel, forKey: .selectedAIModel)
+        try container.encodeIfPresent(localCLICommandOverride, forKey: .localCLICommandOverride)
         try container.encode(outputMode, forKey: .outputMode)
         try container.encode(autoSendKey, forKey: .autoSendKey)
         try container.encodeIfPresent(customCommand, forKey: .customCommand)

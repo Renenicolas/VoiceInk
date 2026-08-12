@@ -37,4 +37,24 @@ struct StarterModeCatalogTests {
     @Test func claudeCLITemplateAllowsWebSearch() {
         #expect(LocalCLITemplate.claude.commandTemplate.contains("--allowedTools=WebSearch,WebFetch"))
     }
+
+    @Test func seededModesThatBenefitFromWebGetClaudeOverride() {
+        let webKinds: Set<StarterModeKind> = [.prompt, .chat, .email, .assistant, .liveAnswers]
+        for kind in webKinds {
+            #expect(
+                StarterModeFactory.claudeOverride(for: kind) == LocalCLITemplate.claude.commandTemplate,
+                "\(kind) should route through the claude CLI override"
+            )
+        }
+    }
+
+    @Test func seededCleanupModesKeepTheGlobalTemplate() {
+        let globalTemplateKinds: Set<StarterModeKind> = [.clean, .enhance, .rewrite]
+        for kind in globalTemplateKinds {
+            #expect(
+                StarterModeFactory.claudeOverride(for: kind) == nil,
+                "\(kind) should keep using the user's global Local CLI template"
+            )
+        }
+    }
 }

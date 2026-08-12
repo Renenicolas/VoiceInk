@@ -8,6 +8,7 @@ enum OnboardingStage: String, CaseIterable {
     case experience
     case contextAwareness
     case trust
+    case shortcuts
     case license
 
     var stepNumber: Int {
@@ -26,8 +27,10 @@ enum OnboardingStage: String, CaseIterable {
             return 6
         case .trust:
             return 7
-        case .license:
+        case .shortcuts:
             return 8
+        case .license:
+            return 9
         }
     }
 
@@ -47,6 +50,8 @@ enum OnboardingStage: String, CaseIterable {
             return "slider.horizontal.3"
         case .trust:
             return "lock.shield"
+        case .shortcuts:
+            return "keyboard"
         case .license:
             return "checkmark.seal.fill"
         }
@@ -68,6 +73,8 @@ enum OnboardingStage: String, CaseIterable {
             return String(localized: "Nino Voice is Context-Aware")
         case .trust:
             return String(localized: "Nino Voice is Open Source")
+        case .shortcuts:
+            return String(localized: "Set Your Shortcuts")
         case .license:
             return String(localized: "Buy Nino Voice License")
         }
@@ -89,6 +96,8 @@ enum OnboardingStage: String, CaseIterable {
             return String(localized: "Nino Voice can select the right mode from the app you are using and the rules you configure.")
         case .trust:
             return String(localized: "Nino Voice is private by default. No data leaves your device unless you opt in.")
+        case .shortcuts:
+            return String(localized: "Choose your own keys for these actions. Pick keys that don't conflict with other apps you use. You can change these anytime in Settings.")
         case .license:
             return String(localized: "Activate an existing key, purchase a license, or start a 7-day free trial.")
         }

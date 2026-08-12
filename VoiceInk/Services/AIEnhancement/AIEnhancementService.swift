@@ -122,7 +122,8 @@ class AIEnhancementService: ObservableObject {
         if useSelectedText,
            let selectedText = contextSnapshot?.selectedText,
            !selectedText.isEmpty {
-            selectedTextContext = "<CURRENTLY_SELECTED_TEXT>\n\(selectedText)\n</CURRENTLY_SELECTED_TEXT>"
+            let safeText = PromptTagSanitizer.sanitize(PromptTagSanitizer.truncate(selectedText))
+            selectedTextContext = "<CURRENTLY_SELECTED_TEXT>\n\(safeText)\n</CURRENTLY_SELECTED_TEXT>"
         } else {
             selectedTextContext = ""
         }
@@ -130,7 +131,7 @@ class AIEnhancementService: ObservableObject {
         let clipboardContext = if useClipboard,
                               let clipboardText = lastCapturedClipboard,
                               !clipboardText.isEmpty {
-            "<CLIPBOARD_CONTEXT>\n\(clipboardText)\n</CLIPBOARD_CONTEXT>"
+            "<CLIPBOARD_CONTEXT>\n\(PromptTagSanitizer.sanitize(PromptTagSanitizer.truncate(clipboardText)))\n</CLIPBOARD_CONTEXT>"
         } else {
             ""
         }
@@ -138,7 +139,7 @@ class AIEnhancementService: ObservableObject {
         let screenCaptureContext = if useScreenCapture,
                                    let capturedText = screenCaptureService.lastCapturedText,
                                    !capturedText.isEmpty {
-            "<CURRENT_WINDOW_CONTEXT>\n\(capturedText)\n</CURRENT_WINDOW_CONTEXT>"
+            "<CURRENT_WINDOW_CONTEXT>\n\(PromptTagSanitizer.sanitize(PromptTagSanitizer.truncate(capturedText)))\n</CURRENT_WINDOW_CONTEXT>"
         } else {
             ""
         }
@@ -197,7 +198,7 @@ class AIEnhancementService: ObservableObject {
             return ""
         }
 
-        let formattedText = "\n<USER_MESSAGE>\n\(text)\n</USER_MESSAGE>"
+        let formattedText = "\n<USER_MESSAGE>\n\(PromptTagSanitizer.sanitize(text))\n</USER_MESSAGE>"
         let systemMessage = await getSystemMessage(
             prompt: prompt,
             configuration: configuration,
@@ -234,7 +235,11 @@ class AIEnhancementService: ObservableObject {
 
         if provider == .localCLI {
             do {
-                let result = try await aiService.enhanceWithLocalCLI(systemPrompt: systemMessage, userPrompt: formattedText)
+                let result = try await aiService.enhanceWithLocalCLI(
+                    systemPrompt: systemMessage,
+                    userPrompt: formattedText,
+                    commandOverride: configuration.localCLICommandOverride
+                )
                 return AIEnhancementOutputFilter.filter(result)
             } catch {
                 if let localError = error as? LocalCLIError {

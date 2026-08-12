@@ -167,6 +167,21 @@ struct OnboardingView: View {
                             )
                         },
                         onContinue: {
+                            coordinator.flow.goToShortcutsStep(
+                                isTranscriptionSetupReady: isTranscriptionSetupReady
+                            )
+                        }
+                    )
+                        .transition(.opacity)
+                case .shortcuts:
+                    OnboardingShortcutsScreen(
+                        contentMaxWidth: contentMaxWidth,
+                        onBack: {
+                            coordinator.flow.goToPreviousShortcutsStep(
+                                isTranscriptionSetupReady: isTranscriptionSetupReady
+                            )
+                        },
+                        onContinue: {
                             coordinator.flow.goToLicenseStep(
                                 isTranscriptionSetupReady: isTranscriptionSetupReady
                             )

@@ -5,15 +5,15 @@
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://beingpax.github.io/VoiceInk/appcast.xml</string>
+	<string></string>
 	<key>SUPublicEDKey</key>
 	<string>gnXep9+mzNXFSbX0jU7CpLtubcQ5WVfVGe0BxsSdS40=</string>
 	<key>LSUIElement</key>
 	<false/>
 	<key>SUEnableAutomaticChecks</key>
-	<true/>
+	<false/>
 	<key>SUScheduledCheckInterval</key>
-	<integer>14400</integer>
+	<integer>0</integer>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Nino Voice needs access to your microphone to record audio for transcription.</string>
 	<key>NSAppleEventsUsageDescription</key>

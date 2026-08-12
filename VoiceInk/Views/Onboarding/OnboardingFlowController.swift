@@ -58,6 +58,20 @@ final class OnboardingFlowController {
         coordinator.storedStage = OnboardingStage.license.rawValue
     }
 
+    func goToShortcutsStep(isTranscriptionSetupReady: Bool) {
+        guard coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady) else { return }
+        coordinator.storedStage = OnboardingStage.shortcuts.rawValue
+    }
+
+    func goToPreviousShortcutsStep(isTranscriptionSetupReady: Bool) {
+        guard coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady) else {
+            coordinator.storedStage = OnboardingStage.api.rawValue
+            return
+        }
+
+        coordinator.storedStage = OnboardingStage.trust.rawValue
+    }
+
     func goToContextAwarenessStep(isTranscriptionSetupReady: Bool) {
         guard coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady),
               coordinator.shouldShowContextAwarenessAfterCurrentExperience else {
@@ -171,7 +185,7 @@ final class OnboardingFlowController {
             return
         }
 
-        coordinator.storedStage = OnboardingStage.trust.rawValue
+        coordinator.storedStage = OnboardingStage.shortcuts.rawValue
     }
 
     func advanceExperienceStep(
@@ -234,6 +248,7 @@ final class OnboardingFlowController {
         if (coordinator.stage == .experience ||
             coordinator.stage == .contextAwareness ||
             coordinator.stage == .trust ||
+            coordinator.stage == .shortcuts ||
             coordinator.stage == .license) &&
             !coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady) {
             goToFirstIncompleteSetupStep(isTranscriptionSetupReady: isTranscriptionSetupReady)
