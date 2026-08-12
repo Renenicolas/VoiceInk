@@ -204,7 +204,15 @@ struct VoiceInkApp: App {
         try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
 
         let defaultStoreURL = appSupportURL.appendingPathComponent("default.store")
+        // Local/client builds are unsigned and cannot carry the iCloud entitlement, so they must
+        // never open a store that a signed (CloudKit-enabled) build wrote: CoreData resumes the
+        // persisted CloudKit mirror metadata on open and traps (EXC_BREAKPOINT) with no entitlement.
+        // Isolate the dictionary store by filename so a local build can never inherit that metadata.
+        #if LOCAL_BUILD
+        let dictionaryStoreURL = appSupportURL.appendingPathComponent("dictionary-local.store")
+        #else
         let dictionaryStoreURL = appSupportURL.appendingPathComponent("dictionary.store")
+        #endif
         let statsStoreURL = appSupportURL.appendingPathComponent("stats.store")
 
         let transcriptSchema = Schema([Transcription.self])
