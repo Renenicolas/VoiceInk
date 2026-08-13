@@ -24,10 +24,21 @@ struct PerAppVoiceProfileManagerView: View {
     @State private var expandedBundleID: String?
     @State private var editedProfile = ""
 
+    // Onboarding-sweep import. The folder is chosen by hand rather than hardcoded: the
+    // sweep lives wherever nino-os is installed, and pointing at it is itself a consent
+    // gesture — the app never goes looking through someone's disk for manifests.
+    @State private var sweepFolder: URL?
+    @State private var sweepManifests: [SweepVoiceImport.Manifest] = []
+    @State private var assignedApp: [String: String] = [:]
+    @State private var importedLanes: Set<String> = []
+    @State private var importingLane: String?
+    @State private var importError: String?
+
     var body: some View {
         NavigationStack {
             Form {
                 teachSection
+                sweepImportSection
                 manageSection
             }
             .formStyle(.grouped)
@@ -124,6 +135,123 @@ struct PerAppVoiceProfileManagerView: View {
                 await MainActor.run {
                     isTeaching = false
                     teachError = "Couldn't distill a profile: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    // MARK: - Import from the onboarding sweep
+
+    private var sweepImportSection: some View {
+        Section {
+            HStack {
+                Button(sweepFolder == nil ? "Choose sweep folder…" : "Choose a different folder…") {
+                    chooseSweepFolder()
+                }
+                if let sweepFolder {
+                    Text(sweepFolder.lastPathComponent)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if sweepFolder != nil && sweepManifests.isEmpty {
+                Text("No importable writing found here. Point at the sweep's `os/sweep/voice` folder, and check the sweep has been run.")
+                    .settingsDescription()
+            }
+
+            ForEach(sweepManifests) { manifest in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(manifest.lane).fontWeight(.medium)
+                        Text("\(manifest.fileCount) samples")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if importingLane == manifest.lane {
+                            ProgressView().controlSize(.small)
+                        } else if importedLanes.contains(manifest.lane) {
+                            Text("imported").font(.system(size: 11)).foregroundStyle(.green)
+                        } else {
+                            Button("Import") { importLane(manifest) }
+                                .disabled(resolvedKey(for: manifest) == nil)
+                        }
+                    }
+
+                    if manifest.needsAppAssignment {
+                        // Loose files on disk carry no app of origin, so the person picks
+                        // one. Nothing is written until they do.
+                        Picker("Use as the voice for", selection: binding(for: manifest.lane)) {
+                            Text("Choose an app").tag("")
+                            ForEach(installedApps, id: \.bundleId) { app in
+                                Text(app.name).tag(app.bundleId)
+                            }
+                        }
+                    } else {
+                        Text("→ \(manifest.profileKey)")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            if let importError {
+                Text(importError).foregroundStyle(.red).font(.system(size: 12))
+            }
+
+            Text("Reads the files the sweep listed, distills each into a starting profile locally, and stores it encrypted on this device. Lanes holding your own private records are never offered here.")
+                .settingsDescription()
+        } header: {
+            Text("Import From Onboarding Sweep")
+        } footer: {
+            Text("The sweep already found the writing you've done. This turns it into your starting voice for each app and site, so you don't begin from nothing.")
+        }
+    }
+
+    private func binding(for lane: String) -> Binding<String> {
+        Binding(get: { assignedApp[lane] ?? "" }, set: { assignedApp[lane] = $0 })
+    }
+
+    /// The key this lane would be written to right now, or nil if it isn't ready — either
+    /// the person hasn't picked an app for loose disk writing, or the manifest's own key is
+    /// one this app can't store under.
+    private func resolvedKey(for manifest: SweepVoiceImport.Manifest) -> String? {
+        if let key = SweepVoiceImport.storageKey(for: manifest) { return key }
+        guard let bundleID = assignedApp[manifest.lane], !bundleID.isEmpty else { return nil }
+        return StyleContextKeyResolver.appPrefix + bundleID
+    }
+
+    private func chooseSweepFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        panel.message = "Choose the sweep's voice folder (os/sweep/voice)"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        sweepFolder = url
+        sweepManifests = SweepVoiceImport.manifests(in: url)
+        importError = nil
+        importedLanes = []
+    }
+
+    private func importLane(_ manifest: SweepVoiceImport.Manifest) {
+        guard let key = resolvedKey(for: manifest) else { return }
+        importingLane = manifest.lane
+        importError = nil
+        Task {
+            do {
+                try await SweepVoiceImport.apply(manifest, to: key)
+                await MainActor.run {
+                    importingLane = nil
+                    importedLanes.insert(manifest.lane)
+                    refreshTrackedApps()
+                }
+            } catch {
+                await MainActor.run {
+                    importingLane = nil
+                    importError = error.localizedDescription
                 }
             }
         }
