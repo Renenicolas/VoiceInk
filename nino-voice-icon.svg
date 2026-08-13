@@ -86,10 +86,7 @@
     <circle cx="512" cy="500" r="356" fill="url(#orbShade)"/>
     <circle cx="512" cy="500" r="356" fill="url(#orbHi)"/>
 
-    <!-- cool blue rim light on lower-right, clipped to the orb -->
-    <g clip-path="url(#orbClip)">
-      <circle cx="712" cy="716" r="250" fill="url(#blueRim)" filter="url(#rimBlur)"/>
-    </g>
+    <!-- (blue rim inside the orb removed — outer blue aura kept above) -->
 
     <!-- warm top-left rim light + specular -->
     <circle cx="512" cy="500" r="355" fill="none" stroke="#FFF6DE" stroke-opacity="0.22" stroke-width="2"/>
@@ -99,8 +96,6 @@
     <g filter="url(#micShadow)">
       <!-- mic body (capsule), near-black -->
       <rect x="426" y="284" width="172" height="278" rx="86" ry="86" fill="#0B0D12"/>
-      <!-- thin blue accent rim on the capsule -->
-      <rect x="426" y="284" width="172" height="278" rx="86" ry="86" fill="none" stroke="#5B8FD6" stroke-opacity="0.7" stroke-width="4"/>
       <g fill="none" stroke="#0B0D12" stroke-linecap="round">
         <!-- cradle arc -->
         <path d="M340 478 a172 172 0 0 0 344 0" stroke-width="44"/>
