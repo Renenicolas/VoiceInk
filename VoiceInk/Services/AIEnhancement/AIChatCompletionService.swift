@@ -43,9 +43,14 @@ extension AIService {
                 timeout: timeout
             )
         case .localCLI:
+            // The chat box takes arbitrary typed questions, not dictation cleanup, so it can't
+            // rely on the user's global Local CLI template (often a no-tools cleanup command
+            // like fm-cleanup that has no way to answer a question). Force a web-enabled claude
+            // override so any typed question gets a real search+fetch instead of an error.
             result = try await enhanceWithLocalCLI(
                 systemPrompt: systemPrompt ?? "",
-                userPrompt: chatPrompt(from: messages)
+                userPrompt: chatPrompt(from: messages),
+                commandOverride: StarterModeFactory.claudeLiveWebCommandTemplate + " --model claude-haiku-4-5-20251001"
             )
         default:
             guard let baseURL = URL(string: provider.baseURL) else {

@@ -158,6 +158,15 @@ final class LocalCLIService {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: "/bin/zsh")
                 process.arguments = ["-lc", commandTemplate]
+                // Run in a dedicated scratch dir, not whatever cwd this process inherits (which
+                // can be a TCC-guarded folder like Downloads and trigger a repeated macOS access
+                // prompt). Best-effort: if the dir can't be created, leave currentDirectoryURL
+                // unset rather than failing the spawn.
+                let scratchDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("com.prakashjoshipax.VoiceInk/cli-scratch", isDirectory: true)
+                if (try? FileManager.default.createDirectory(at: scratchDir, withIntermediateDirectories: true)) != nil {
+                    process.currentDirectoryURL = scratchDir
+                }
 
                 var environment = ProcessInfo.processInfo.environment
                 environment["PATH"] = ShellCommandEnvironment.preferredPATH(fallback: environment["PATH"])
