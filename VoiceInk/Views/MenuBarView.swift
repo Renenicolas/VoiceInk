@@ -41,10 +41,24 @@ struct MenuBarView: View {
         }
     }
 
+    private var isRecordingActive: Bool {
+        engine.recordingState == .recording || engine.recordingState == .starting
+    }
+
     private var completedOnboardingMenu: some View {
         Group {
-            Button("Toggle Recorder") {
-                recorderUIManager.handleToggleRecorderPanelNotification()
+            // Click-to-use entry point: starts (or stops) dictation with the current
+            // default/active mode via the same recorderUIManager.toggleRecorderPanel()
+            // path the primary hotkey drives — no hotkey needs to be remembered.
+            Button {
+                Task {
+                    await recorderUIManager.toggleRecorderPanel()
+                }
+            } label: {
+                Label(
+                    isRecordingActive ? String(localized: "Stop Dictation") : String(localized: "Start Dictation"),
+                    systemImage: isRecordingActive ? "stop.circle.fill" : "mic.circle.fill"
+                )
             }
 
             Divider()
@@ -52,7 +66,12 @@ struct MenuBarView: View {
             Menu {
                 ForEach(modeManager.enabledConfigurations) { config in
                     Button {
-                        modeManager.setActiveConfiguration(config)
+                        // Same direct per-mode start path used by per-mode hotkeys
+                        // (ModeShortcutManager -> toggleRecorderPanel(modeId:)): it
+                        // activates this mode and immediately begins recording in it.
+                        Task {
+                            await recorderUIManager.toggleRecorderPanel(modeId: config.id)
+                        }
                     } label: {
                         let isActive = modeManager.currentEffectiveConfiguration?.id == config.id
                         Text(isActive ? "\(config.name)  ✓" : config.name)
