@@ -254,6 +254,13 @@ class AIEnhancementService: ObservableObject {
         }
     }
 
+    /// True when `text` has no non-whitespace content — i.e. a "no speech captured" transcript.
+    /// `nonisolated static` (same reasoning as `styleMemorySection` above) so it's a pure,
+    /// directly testable seam without constructing a full `AIEnhancementService`.
+    nonisolated static func isBlank(_ text: String) -> Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private func makeRequest(
         text: String,
         configuration: EnhancementRuntimeConfiguration,
@@ -272,7 +279,12 @@ class AIEnhancementService: ObservableObject {
         }
         let modelName = configuration.modelName ?? provider.defaultModel
 
-        guard !text.isEmpty else {
+        // Empty AND whitespace-only transcripts (e.g. a record shortcut that captured no speech)
+        // short-circuit here, before any provider — including the local CLI — is ever invoked.
+        // This is the single choke point every enhance() caller (live recording, retry,
+        // re-enhance from history, audio-file transcription) routes through, so fixing it here
+        // covers every provider path at once instead of patching each call site.
+        guard !Self.isBlank(text) else {
             return ""
         }
 

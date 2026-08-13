@@ -35,28 +35,50 @@ struct MenuBarView: View {
         .buttonStyle(.plain)
     }
 
-    /// Nino brand mark: gold orb + wordmark, with a gold hairline underneath. This is the
-    /// dropdown's first impression, so it needs to read as Nino-branded, not a plain system menu.
+    /// Nino brand mark: a gold-tinted band behind a larger glowing orb + bold ivory wordmark,
+    /// closed off with a gold hairline underline. This is the dropdown's first impression, so it
+    /// needs to read as premium and unmistakably Nino-branded, not a plain near-black system menu.
     private var ninoHeader: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [AppTheme.Nino.gold, AppTheme.Nino.gold.opacity(0.55)],
                             center: .center,
                             startRadius: 0,
-                            endRadius: 8
+                            endRadius: 10
                         )
                     )
-                    .frame(width: 14, height: 14)
+                    .frame(width: 20, height: 20)
+                    .shadow(color: AppTheme.Nino.gold.opacity(0.55), radius: 5, y: 1)
 
                 Text("Nino Voice")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(AppTheme.Nino.ivory)
+                    .tracking(0.2)
+
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 2)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+            .background(
+                LinearGradient(
+                    colors: [AppTheme.Nino.gold.opacity(0.20), AppTheme.Nino.gold.opacity(0.02)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(alignment: .bottom) {
+                LinearGradient(
+                    colors: [AppTheme.Nino.gold, AppTheme.Nino.gold.opacity(0)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(height: 1.5)
+                .padding(.horizontal, 10)
+            }
 
             ninoDivider
         }
@@ -99,11 +121,21 @@ struct MenuBarView: View {
                     await recorderUIManager.toggleRecorderPanel()
                 }
             } label: {
-                Label(
-                    isRecordingActive ? String(localized: "Stop Dictation") : String(localized: "Start Dictation"),
-                    systemImage: isRecordingActive ? "stop.circle.fill" : "mic.circle.fill"
+                HStack(spacing: 8) {
+                    Image(systemName: isRecordingActive ? "stop.circle.fill" : "mic.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppTheme.Nino.gold)
+                    Text(isRecordingActive ? String(localized: "Stop Dictation") : String(localized: "Start Dictation"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(isRecordingActive ? AppTheme.Nino.gold : AppTheme.Nino.ivory)
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(AppTheme.Nino.gold.opacity(isRecordingActive ? 0.18 : 0.10))
                 )
-                .foregroundStyle(isRecordingActive ? AppTheme.Nino.gold : AppTheme.Nino.ivory)
             }
 
             ninoDivider

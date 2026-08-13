@@ -41,7 +41,11 @@ final class LocalCLIService {
     static let commandTemplateKey = "localCLICommandTemplate"
     static let selectedTemplateKey = "localCLISelectedTemplate"
     static let timeoutSecondsKey = "localCLITimeoutSeconds"
-    static let defaultTimeoutSeconds: Double = 45
+    // Local CLI runs (fm-cleanup, claude -p, codex exec, ...) can do multi-step reasoning or
+    // live web search — the owner prefers waiting over an early timeout error on those. 10
+    // minutes is a generous backstop, not a target latency. Still overridable via Settings
+    // (persisted in UserDefaults under timeoutSecondsKey) and still clamped to >= 5s below.
+    static let defaultTimeoutSeconds: Double = 600
 
     var commandTemplate: String {
         didSet {
