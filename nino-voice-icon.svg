@@ -1,0 +1,114 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="squircle">
+      <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224"/>
+    </clipPath>
+    <clipPath id="orbClip">
+      <circle cx="512" cy="500" r="356"/>
+    </clipPath>
+
+    <!-- Charcoal ground -->
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#181B21"/>
+      <stop offset="0.55" stop-color="#14161A"/>
+      <stop offset="1"   stop-color="#0F1113"/>
+    </linearGradient>
+    <radialGradient id="groundGlow" cx="0.5" cy="0.42" r="0.62">
+      <stop offset="0"   stop-color="#1E252E" stop-opacity="0.9"/>
+      <stop offset="0.6" stop-color="#14161A" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- GOLD SPHERE: canonical Nino orb recipe -->
+    <radialGradient id="orbBody" cx="0.40" cy="0.34" r="0.82">
+      <stop offset="0"    stop-color="#F5E0A8"/>
+      <stop offset="0.16" stop-color="#EED08A"/>
+      <stop offset="0.42" stop-color="#D4A853"/>
+      <stop offset="0.68" stop-color="#B8923E"/>
+      <stop offset="0.86" stop-color="#8A6D2F"/>
+      <stop offset="1"    stop-color="#4A3413"/>
+    </radialGradient>
+    <radialGradient id="orbHi" cx="0.35" cy="0.30" r="0.30">
+      <stop offset="0"   stop-color="#FFFBEC" stop-opacity="0.90"/>
+      <stop offset="1"   stop-color="#FFFBEC" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbShade" cx="0.70" cy="0.76" r="0.66">
+      <stop offset="0"    stop-color="#2A1C08" stop-opacity="0"/>
+      <stop offset="0.70" stop-color="#2A1C08" stop-opacity="0"/>
+      <stop offset="1"    stop-color="#2A1C08" stop-opacity="0.62"/>
+    </radialGradient>
+    <radialGradient id="spec" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"   stop-color="#FFFFFF" stop-opacity="0.98"/>
+      <stop offset="0.6" stop-color="#FFFDF6" stop-opacity="0.35"/>
+      <stop offset="1"   stop-color="#FFFDF6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"    stop-color="#D4A853" stop-opacity="0.30"/>
+      <stop offset="0.55" stop-color="#D4A853" stop-opacity="0.10"/>
+      <stop offset="0.8"  stop-color="#D4A853" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- BLUE ACCENTS (introduced; complements the gold) -->
+    <!-- cool bounce/rim light catching the lower-right of the orb -->
+    <radialGradient id="blueRim" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0"    stop-color="#6FA6E6" stop-opacity="0.60"/>
+      <stop offset="0.62" stop-color="#5B8FD6" stop-opacity="0.14"/>
+      <stop offset="1"    stop-color="#5B8FD6" stop-opacity="0"/>
+    </radialGradient>
+    <!-- subtle cool aura ringing the orb, under the gold halo -->
+    <radialGradient id="blueAura" cx="0.5" cy="0.52" r="0.5">
+      <stop offset="0.56" stop-color="#3E6FA8" stop-opacity="0"/>
+      <stop offset="0.84" stop-color="#3E6FA8" stop-opacity="0.18"/>
+      <stop offset="1"    stop-color="#3E6FA8" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="micShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#000000" flood-opacity="0.42"/>
+    </filter>
+    <filter id="specBlur" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+    <filter id="rimBlur" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+
+  <g clip-path="url(#squircle)">
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#ground)"/>
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#groundGlow)"/>
+
+    <!-- subtle blue aura (under gold halo so gold stays dominant) -->
+    <circle cx="512" cy="500" r="452" fill="url(#blueAura)"/>
+    <!-- gold outer halo -->
+    <circle cx="512" cy="500" r="430" fill="url(#halo)"/>
+
+    <!-- gold sphere -->
+    <circle cx="512" cy="500" r="356" fill="url(#orbBody)"/>
+    <circle cx="512" cy="500" r="356" fill="url(#orbShade)"/>
+    <circle cx="512" cy="500" r="356" fill="url(#orbHi)"/>
+
+    <!-- cool blue rim light on lower-right, clipped to the orb -->
+    <g clip-path="url(#orbClip)">
+      <circle cx="712" cy="716" r="250" fill="url(#blueRim)" filter="url(#rimBlur)"/>
+    </g>
+
+    <!-- warm top-left rim light + specular -->
+    <circle cx="512" cy="500" r="355" fill="none" stroke="#FFF6DE" stroke-opacity="0.22" stroke-width="2"/>
+    <ellipse cx="392" cy="366" rx="44" ry="31" fill="url(#spec)" filter="url(#specBlur)"/>
+
+    <!-- Microphone glyph: BLACK, with a thin blue accent edge -->
+    <g filter="url(#micShadow)">
+      <!-- mic body (capsule), near-black -->
+      <rect x="426" y="284" width="172" height="278" rx="86" ry="86" fill="#0B0D12"/>
+      <!-- thin blue accent rim on the capsule -->
+      <rect x="426" y="284" width="172" height="278" rx="86" ry="86" fill="none" stroke="#5B8FD6" stroke-opacity="0.7" stroke-width="4"/>
+      <g fill="none" stroke="#0B0D12" stroke-linecap="round">
+        <!-- cradle arc -->
+        <path d="M340 478 a172 172 0 0 0 344 0" stroke-width="44"/>
+        <!-- stem -->
+        <path d="M512 650 L512 716" stroke-width="44"/>
+        <!-- base foot -->
+        <path d="M420 730 L604 730" stroke-width="44"/>
+      </g>
+    </g>
+  </g>
+</svg>
