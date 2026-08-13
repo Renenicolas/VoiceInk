@@ -99,4 +99,21 @@ Icon
 .AppleDesktop
 Network Trash Folder
 Temporary Items
-.apdisk 
+.apdisk
+
+# --- credentials (glob-first) ---
+# A list of specific names lets variants through: a timestamped backup
+# (.env.bak-<epoch>) matched none of .env, .env.local or .env.*.local and sat
+# committable next to real OAuth secrets. Glob first, then re-include the
+# placeholder files that are meant to be tracked.
+.env*
+!.env.example
+!.env*.example
+!.env.sample
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+credentials.json
+*service-account*.json
