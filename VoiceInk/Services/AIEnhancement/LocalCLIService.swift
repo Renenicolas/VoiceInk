@@ -106,8 +106,21 @@ final class LocalCLIService {
     /// Whether a local-CLI command string grants live network access (web search/fetch).
     /// Used to gate accumulated per-app style memory (PerAppStyleMemory) out of prompts that
     /// will run through a network-capable tool — see AIEnhancementService.styleMemorySection.
+    ///
+    /// SAFE-BY-DEFAULT ALLOWLIST: only the known tools-off templates (pi/claude/copilot, each
+    /// launched with an explicit no-tools flag) pass as "no network tools granted". Everything
+    /// else — including codex's default template (whose tool policy isn't pinned down here) and
+    /// any user-typed custom command — is treated as network-granting. This replaces a substring
+    /// denylist that only caught the literal strings "WebSearch"/"WebFetch" and missed any other
+    /// network-capable command a user could point Local CLI at (e.g. codex with tools, copilot
+    /// without --available-tools=__none__, a custom wrapper).
     static func commandGrantsNetworkTools(_ command: String) -> Bool {
-        command.contains("WebSearch") || command.contains("WebFetch")
+        let toolsOffTemplates: Set<String> = [
+            LocalCLITemplate.pi.commandTemplate,
+            LocalCLITemplate.claude.commandTemplate,
+            LocalCLITemplate.copilot.commandTemplate,
+        ]
+        return !toolsOffTemplates.contains(command.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     static func makeFullPrompt(systemPrompt: String, userPrompt: String) -> String {

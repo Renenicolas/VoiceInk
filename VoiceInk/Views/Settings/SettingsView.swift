@@ -25,6 +25,7 @@ struct SettingsView: View {
     @AppStorage(PerAppStyleMemory.isEnabledKey) private var isPerAppStyleMemoryEnabled = true
     @State private var showResetOnboardingAlert = false
     @State private var showClearLearnedStylesAlert = false
+    @State private var showPerAppVoiceProfileManager = false
     @State private var showLanguageRestartAlert = false
     @State private var hasCancelRecordingShortcut = ShortcutStore.shortcut(for: .cancelRecorder) != nil
     @State private var cancelRecordingShortcutRecorderResetID = 0
@@ -271,6 +272,15 @@ struct SettingsView: View {
                 }
 
                 HStack {
+                    Text("Nino Voice also distills a concise voice profile per app once it has enough examples.")
+                        .settingsDescription()
+                    Spacer()
+                    Button("Teach My Voice For This App From Existing Writing…") {
+                        showPerAppVoiceProfileManager = true
+                    }
+                }
+
+                HStack {
                     Button("Check for Updates") {
                         updaterViewModel.checkForUpdates()
                     }
@@ -323,6 +333,9 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+        .sheet(isPresented: $showPerAppVoiceProfileManager) {
+            PerAppVoiceProfileManagerView()
+        }
         .alert("Reset Onboarding", isPresented: $showResetOnboardingAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Reset", role: .destructive) {

@@ -3,6 +3,13 @@ import CryptoKit
 import Security
 import os
 
+/// What `PerAppStyleMemory.styleMemoryContent(forApp:)` resolved to inject into a prompt.
+enum StyleMemoryContent {
+    case profile(String)
+    case exemplars([String])
+    case none
+}
+
 /// Learns how the user writes in each app (keyed by bundle id) from past AI-enhanced
 /// dictation output, so future enhancements in that app can match their established style.
 ///
@@ -33,6 +40,12 @@ final class PerAppStyleMemory {
     /// but without this the map of apps itself grows unbounded (one bucket per foreground app
     /// ever seen). Oldest-touched app is evicted first once exceeded.
     private static let maxApps = 50
+    /// Cap on a stored/edited profile — a distilled profile is meant to be short; this is
+    /// belt-and-suspenders against a runaway CLI response or a huge pasted "teach" sample.
+    private static let maxProfileChars = 2000
+    /// New exemplars recorded for an app before its profile is re-distilled (see
+    /// `PerAppVoiceProfileConsolidator`).
+    static let consolidationThreshold = 5
 
     /// Matches the `@AppStorage` key used by the Settings toggle.
     static let isEnabledKey = "PerAppStyleMemoryEnabled"
@@ -40,15 +53,45 @@ final class PerAppStyleMemory {
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "PerAppStyleMemory")
     private let lock = NSLock()
     /// On-disk shape: `order` tracks apps oldest-touched-first (see `maxApps` eviction);
-    /// `entries` is the same per-app exemplar map `cache` always was.
+    /// `entries` is the same per-app exemplar map `cache` always was. `profiles` is the
+    /// distilled, human-readable per-app voice profile (see `PerAppVoiceProfileService`) —
+    /// source material (`entries`) is kept even once a profile exists, so consolidation always
+    /// has something to re-distill from. `pendingSinceConsolidation` counts exemplars recorded
+    /// since an app's last successful consolidation, independent of `entries`' capped length.
     private struct PersistedState: Codable {
         var order: [String]
         var entries: [String: [String]]
+        var profiles: [String: String]
+        var pendingSinceConsolidation: [String: Int]
+
+        init(
+            order: [String],
+            entries: [String: [String]],
+            profiles: [String: String] = [:],
+            pendingSinceConsolidation: [String: Int] = [:]
+        ) {
+            self.order = order
+            self.entries = entries
+            self.profiles = profiles
+            self.pendingSinceConsolidation = pendingSinceConsolidation
+        }
+
+        // Custom decode so files written before profiles/consolidation existed (missing those
+        // keys entirely) still load instead of failing decode.
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            order = try container.decode([String].self, forKey: .order)
+            entries = try container.decode([String: [String]].self, forKey: .entries)
+            profiles = try container.decodeIfPresent([String: String].self, forKey: .profiles) ?? [:]
+            pendingSinceConsolidation = try container.decodeIfPresent([String: Int].self, forKey: .pendingSinceConsolidation) ?? [:]
+        }
     }
 
     private let storeURL: URL?
     private var cache: [String: [String]]
-    /// Distinct app keys, oldest-touched first. `record` moves an app to the end.
+    private var profiles: [String: String]
+    private var pendingCounts: [String: Int]
+    /// Distinct app keys, oldest-touched first. `record`/`setProfile` moves an app to the end.
     private var appOrder: [String]
 
     var isEnabled: Bool {
@@ -59,9 +102,13 @@ final class PerAppStyleMemory {
     private init() {
         storeURL = Self.resolveStoreURL()
         cache = [:]
+        profiles = [:]
+        pendingCounts = [:]
         appOrder = []
         let state = load()
         cache = state.entries
+        profiles = state.profiles
+        pendingCounts = state.pendingSinceConsolidation
         appOrder = state.order
     }
 
@@ -69,10 +116,18 @@ final class PerAppStyleMemory {
 
     /// Records a finished AI-enhancement output as a style exemplar for `bundleID`.
     /// No-ops when memory is disabled, the output is empty, or the app is unknown.
-    func record(output: String, forApp bundleID: String) {
-        guard isEnabled else { return }
+    ///
+    /// Returns `true` exactly when this call pushed the app's since-last-consolidation
+    /// exemplar count to `consolidationThreshold` (and reset it back to 0) — the caller's
+    /// signal to kick off a background re-distillation via `PerAppVoiceProfileConsolidator`.
+    /// This method itself never calls out to any CLI; it only tracks the counter, so the
+    /// trigger point is decided synchronously and cheaply, off of which the caller decides
+    /// whether to do the (slow, async) distillation.
+    @discardableResult
+    func record(output: String, forApp bundleID: String) -> Bool {
+        guard isEnabled else { return false }
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !bundleID.isEmpty else { return }
+        guard !trimmed.isEmpty, !bundleID.isEmpty else { return false }
 
         // Sanitized so a captured page/clipboard that made it into the enhanced output can't
         // later poison a future prompt when this exemplar is replayed back into it.
@@ -93,14 +148,13 @@ final class PerAppStyleMemory {
         }
         cache[bundleID] = exemplars
 
-        appOrder.removeAll { $0 == bundleID }
-        appOrder.append(bundleID)
-        while appOrder.count > Self.maxApps {
-            let evicted = appOrder.removeFirst()
-            cache[evicted] = nil
-        }
+        let pending = (pendingCounts[bundleID] ?? 0) + 1
+        let shouldConsolidate = pending >= Self.consolidationThreshold
+        pendingCounts[bundleID] = shouldConsolidate ? 0 : pending
 
+        touch(bundleID)
         persist()
+        return shouldConsolidate
     }
 
     /// Recent exemplars for `bundleID`, oldest first. Empty when memory is disabled or unknown.
@@ -111,11 +165,72 @@ final class PerAppStyleMemory {
         return cache[bundleID] ?? []
     }
 
+    /// The distilled style profile for prompt injection — `nil` when memory is disabled, or
+    /// no profile has been distilled yet for this app (raw exemplars are the fallback; see
+    /// `AIEnhancementService.styleMemorySection`).
+    func profile(forApp bundleID: String) -> String? {
+        guard isEnabled else { return nil }
+        lock.lock()
+        defer { lock.unlock() }
+        return profiles[bundleID]
+    }
+
+    /// Same as `profile(forApp:)` but ignores the enabled toggle — for the Settings
+    /// view/edit/clear UI, which should still show what's stored even while memory is off.
+    func rawProfile(forApp bundleID: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return profiles[bundleID]
+    }
+
+    /// What `AIEnhancementService.styleMemorySection` should inject for `bundleID`: a
+    /// distilled profile takes precedence over raw exemplars; raw exemplars are the fallback
+    /// until a first profile has been distilled (see `PerAppVoiceProfileConsolidator`).
+    /// `.none` when memory is disabled, the app is unknown, or nothing has been recorded yet.
+    func styleMemoryContent(forApp bundleID: String?) -> StyleMemoryContent {
+        guard isEnabled, let bundleID else { return .none }
+        lock.lock()
+        defer { lock.unlock() }
+        if let profile = profiles[bundleID], !profile.isEmpty {
+            return .profile(profile)
+        }
+        let exemplars = cache[bundleID] ?? []
+        return exemplars.isEmpty ? .none : .exemplars(exemplars)
+    }
+
+    /// Bundle ids with any stored exemplars and/or a profile, most-recently-touched last.
+    /// For the Settings management UI; not gated by the enabled toggle (same reasoning as
+    /// `rawProfile`).
+    func trackedApps() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return appOrder
+    }
+
+    /// Stores (or overwrites) `bundleID`'s distilled profile — called by
+    /// `PerAppVoiceProfileConsolidator` after a background re-distillation, and by the
+    /// Settings "teach"/edit UI. No-ops on an empty profile or bundle id.
+    func setProfile(_ profile: String, forApp bundleID: String) {
+        let trimmed = profile.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !bundleID.isEmpty else { return }
+        let sanitized = PromptTagSanitizer.sanitize(
+            PromptTagSanitizer.truncate(trimmed, limit: Self.maxProfileChars)
+        )
+
+        lock.lock()
+        defer { lock.unlock() }
+        profiles[bundleID] = sanitized
+        touch(bundleID)
+        persist()
+    }
+
     func clear(forApp bundleID: String) {
         lock.lock()
         defer { lock.unlock() }
-        guard cache[bundleID] != nil else { return }
+        guard cache[bundleID] != nil || profiles[bundleID] != nil else { return }
         cache[bundleID] = nil
+        profiles[bundleID] = nil
+        pendingCounts[bundleID] = nil
         appOrder.removeAll { $0 == bundleID }
         persist()
     }
@@ -123,10 +238,26 @@ final class PerAppStyleMemory {
     func clearAll() {
         lock.lock()
         defer { lock.unlock() }
-        guard !cache.isEmpty else { return }
+        guard !cache.isEmpty || !profiles.isEmpty else { return }
         cache = [:]
+        profiles = [:]
+        pendingCounts = [:]
         appOrder = []
         persist()
+    }
+
+    /// Moves `bundleID` to the most-recently-touched end of `appOrder` and evicts the
+    /// oldest-touched app (exemplars, profile, and pending count) once `maxApps` is exceeded.
+    /// Caller must hold `lock`.
+    private func touch(_ bundleID: String) {
+        appOrder.removeAll { $0 == bundleID }
+        appOrder.append(bundleID)
+        while appOrder.count > Self.maxApps {
+            let evicted = appOrder.removeFirst()
+            cache[evicted] = nil
+            profiles[evicted] = nil
+            pendingCounts[evicted] = nil
+        }
     }
 
     // MARK: - Persistence (encrypted at rest, local only)
@@ -170,7 +301,9 @@ final class PerAppStyleMemory {
             return
         }
         do {
-            let plaintext = try JSONEncoder().encode(PersistedState(order: appOrder, entries: cache))
+            let plaintext = try JSONEncoder().encode(
+                PersistedState(order: appOrder, entries: cache, profiles: profiles, pendingSinceConsolidation: pendingCounts)
+            )
             let sealedBox = try AES.GCM.seal(plaintext, using: key)
             guard let combined = sealedBox.combined else {
                 logger.error("AES-GCM seal produced no combined representation")
