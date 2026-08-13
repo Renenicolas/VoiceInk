@@ -31,7 +31,10 @@ final class UpdateCheckService: ObservableObject {
 
     /// Overridable via UserDefaults for staging/testing without a rebuild.
     /// TODO: replace with the real production CRM host once it's live.
-    private static let defaultFeedBase = "https://clients.nino.app"
+    // No default host: until a real Nino CRM URL is configured (via NinoUpdateFeedBase),
+    // the app makes NO update-check request. A hardcoded host we don't own would ping a
+    // third party on every launch. Empty = no request.
+    private static let defaultFeedBase = ""
     private static let feedBaseDefaultsKey = "NinoUpdateFeedBase"
     private static let lastCheckDefaultsKey = "NinoLastUpdateCheckDate"
 
@@ -92,7 +95,9 @@ final class UpdateCheckService: ObservableObject {
     }
 
     private func buildRequestURL() -> URL? {
-        var components = URLComponents(string: "\(feedBase)/api/app-version")
+        let base = feedBase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !base.isEmpty, base.hasPrefix("https://") else { return nil }
+        var components = URLComponents(string: "\(base)/api/app-version")
         let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
         components?.queryItems = [
             URLQueryItem(name: "product", value: product),
