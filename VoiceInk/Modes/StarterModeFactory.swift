@@ -159,6 +159,8 @@ enum StarterModeFactory {
             return
         }
 
+        healLocalCLICommandOverrides(manager: manager)
+
         let existingIds = Set(manager.configurations.map(\.id))
         let missing = StarterModeCatalog.templates.filter { !existingIds.contains($0.id) }
         guard !missing.isEmpty else { return }
@@ -198,6 +200,25 @@ enum StarterModeFactory {
                 isDefault: false
             )
             manager.addConfiguration(config)
+        }
+    }
+
+    /// Self-heals per-mode Claude routing for installs seeded before `claudeOverride(for:)`
+    /// existed: those starter modes have `localCLICommandOverride == nil`, so AI modes
+    /// silently fall back to the user's global Local CLI template (e.g. a non-Claude local
+    /// binary) and break — Q&A modes like Answers Live can't answer. Brings every installed
+    /// starter mode's override in line with `claudeOverride(for:)`, leaving everything else on
+    /// the config untouched. Idempotent (no-op once correct). Internal (not private) so it's
+    /// directly unit-testable.
+    static func healLocalCLICommandOverrides(manager: ModeManager) {
+        for config in manager.configurations {
+            guard let template = StarterModeCatalog.templates.first(where: { $0.id == config.id }) else { continue }
+            let expectedOverride = claudeOverride(for: template.kind)
+            guard config.localCLICommandOverride != expectedOverride else { continue }
+
+            var healed = config
+            healed.localCLICommandOverride = expectedOverride
+            manager.updateConfiguration(healed)
         }
     }
 

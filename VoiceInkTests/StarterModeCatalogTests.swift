@@ -81,4 +81,65 @@ struct StarterModeCatalogTests {
             )
         }
     }
+
+    /// Regression test for the shipped self-heal bug: modes seeded before `claudeOverride`
+    /// existed have `localCLICommandOverride == nil`, so AI modes silently fell back to the
+    /// user's global Local CLI template and broke (e.g. Answers Live couldn't do Q&A).
+    /// `healLocalCLICommandOverrides` must bring every installed starter mode's override back
+    /// in line with `claudeOverride(for:)`.
+    @Test @MainActor func healLocalCLICommandOverridesFixesExistingStarterModes() {
+        let manager = ModeManager.shared
+        let originalConfigurations = manager.configurations
+        defer { manager.replaceConfigurations(originalConfigurations) }
+
+        func seededConfig(for kind: StarterModeKind, override: String?) -> ModeConfig {
+            let template = StarterModeCatalog.templates.first { $0.kind == kind }!
+            return ModeConfig(
+                id: template.id,
+                name: template.name,
+                isAIEnhancementEnabled: template.usesAIEnhancement,
+                localCLICommandOverride: override
+            )
+        }
+
+        // Mimic a pre-claudeOverride install: AI modes seeded with nil, one with a stale value.
+        manager.replaceConfigurations([
+            seededConfig(for: .clean, override: nil),
+            seededConfig(for: .enhance, override: nil),
+            seededConfig(for: .rewrite, override: nil),
+            seededConfig(for: .assistant, override: nil),
+            seededConfig(for: .liveAnswers, override: "stale-template"),
+            seededConfig(for: .prompt, override: nil),
+            seededConfig(for: .chat, override: nil),
+            seededConfig(for: .email, override: nil),
+        ])
+
+        StarterModeFactory.healLocalCLICommandOverrides(manager: manager)
+
+        func override(for kind: StarterModeKind) -> String? {
+            let template = StarterModeCatalog.templates.first { $0.kind == kind }!
+            return manager.configurations.first { $0.id == template.id }?.localCLICommandOverride
+        }
+
+        let webKinds: Set<StarterModeKind> = [.assistant, .liveAnswers]
+        for kind in webKinds {
+            #expect(override(for: kind) == StarterModeFactory.claudeLiveWebCommandTemplate)
+        }
+
+        let stylePasteKinds: Set<StarterModeKind> = [.chat, .email, .prompt]
+        for kind in stylePasteKinds {
+            #expect(override(for: kind) == LocalCLITemplate.claude.commandTemplate)
+        }
+
+        let globalTemplateKinds: Set<StarterModeKind> = [.clean, .enhance, .rewrite]
+        for kind in globalTemplateKinds {
+            #expect(override(for: kind) == nil)
+        }
+
+        // Idempotent: running again makes no further changes to any override.
+        let overridesAfterFirstHeal = StarterModeKind.allCases.map { override(for: $0) }
+        StarterModeFactory.healLocalCLICommandOverrides(manager: manager)
+        let overridesAfterSecondHeal = StarterModeKind.allCases.map { override(for: $0) }
+        #expect(overridesAfterFirstHeal == overridesAfterSecondHeal)
+    }
 }

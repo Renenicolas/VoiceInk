@@ -19,6 +19,8 @@ struct MenuBarView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
+            ninoHeader
+
             if hasCompletedOnboardingV2 {
                 completedOnboardingMenu
             } else {
@@ -31,6 +33,33 @@ struct MenuBarView: View {
         .foregroundStyle(AppTheme.Nino.ivory)
         .tint(AppTheme.Nino.gold)
         .buttonStyle(.plain)
+    }
+
+    /// Nino brand mark: gold orb + wordmark, with a gold hairline underneath. This is the
+    /// dropdown's first impression, so it needs to read as Nino-branded, not a plain system menu.
+    private var ninoHeader: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [AppTheme.Nino.gold, AppTheme.Nino.gold.opacity(0.55)],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 8
+                        )
+                    )
+                    .frame(width: 14, height: 14)
+
+                Text("Nino Voice")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.Nino.ivory)
+            }
+            .padding(.horizontal, 2)
+            .padding(.bottom, 8)
+
+            ninoDivider
+        }
     }
 
     private var onboardingMenu: some View {

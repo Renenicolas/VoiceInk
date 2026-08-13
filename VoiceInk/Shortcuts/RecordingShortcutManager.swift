@@ -296,10 +296,14 @@ class RecordingShortcutManager: ObservableObject {
         }
     }
 
+    /// Enhancement starter mode (light cleanup: fillers removed + light grammar, not
+    /// reshaped) — see StarterModeCatalog kind .enhance. Hands-free toggle always targets
+    /// this mode rather than the user's current/default mode.
+    private static let enhancementModeId = UUID(uuidString: "10000000-0000-0000-0000-000000000002")!
+
     private func handleHandsFreeToggleKeyDown() async {
         guard canHandleShortcutAction else { return }
-        // Same primary toggle path the default hotkey uses (modeId: nil = current/default mode).
-        await recorderUIManager.toggleRecorderPanel()
+        await recorderUIManager.toggleRecorderPanel(modeId: Self.enhancementModeId)
     }
 
     private func handleGlobalShortcut(_ action: ShortcutAction) async {
