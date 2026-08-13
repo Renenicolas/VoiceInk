@@ -6,9 +6,17 @@ struct RecordingContextSnapshot {
     var selectedText: String?
     var clipboardText: String?
     var screenText: String?
-    /// Bundle identifier of the frontmost app when this recording started. Powers
-    /// per-app learned-voice style memory (see `PerAppStyleMemory`).
+    /// Bundle identifier of the frontmost app when this recording started. Raw app identity —
+    /// for the actual per-app-style-memory STORAGE KEY (which is instead a browser tab's
+    /// domain when the frontmost app is a browser), see `styleContextKey`.
     var appBundleID: String?
+    /// Per-app-style-memory storage key resolved at recording time (see
+    /// `StyleContextKeyResolver`): `"web:<domain>"` when the frontmost app was a known browser
+    /// and its active tab's URL was fetchable at capture time, else `"app:<bundleID>"`. May
+    /// still be `nil` if the resolution task (browser URL fetch can take up to ~1.5s) hasn't
+    /// completed yet when this snapshot is read — callers should fall back to deriving
+    /// `"app:" + appBundleID` in that case (see `AIEnhancementService.resolvedStyleContextKey`).
+    var styleContextKey: String?
 }
 
 @MainActor
@@ -31,6 +39,10 @@ final class RecordingContextSnapshotStore {
         snapshot.appBundleID = Self.normalized(bundleID)
     }
 
+    func updateStyleContextKey(_ key: String?) {
+        snapshot.styleContextKey = Self.normalized(key)
+    }
+
     private static func normalized(_ text: String?) -> String? {
         guard let text else { return nil }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -44,7 +56,8 @@ enum RecordingContextCaptureService {
         // Frontmost app is already known synchronously (ActiveWindowService set it when this
         // recording began) — capture it now rather than in a Task, so it reflects the app that
         // was frontmost at recording time, not whatever is frontmost when a Task later runs.
-        store.updateAppBundleID(ActiveWindowService.shared.currentApplication?.bundleIdentifier)
+        let bundleID = ActiveWindowService.shared.currentApplication?.bundleIdentifier
+        store.updateAppBundleID(bundleID)
 
         return [
             Task { @MainActor in
@@ -62,6 +75,12 @@ enum RecordingContextCaptureService {
                 let screenText = await screenCaptureService.captureAndExtractText()
                 guard !Task.isCancelled else { return }
                 store.updateScreenText(screenText)
+            },
+            Task { @MainActor in
+                guard !Task.isCancelled else { return }
+                let key = await StyleContextKeyResolver.resolve(bundleID: bundleID)
+                guard !Task.isCancelled else { return }
+                store.updateStyleContextKey(key)
             }
         ]
     }

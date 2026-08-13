@@ -283,15 +283,41 @@ final class PerAppStyleMemory {
             let sealedBox = try AES.GCM.SealedBox(combined: sealedData)
             let plaintext = try AES.GCM.open(sealedBox, using: key)
             if let state = try? JSONDecoder().decode(PersistedState.self, from: plaintext) {
-                return state
+                return Self.migratingLegacyKeys(state)
             }
             // Back-compat: pre-L1 files stored the raw `[String: [String]]` map with no order.
             let legacyEntries = try JSONDecoder().decode([String: [String]].self, from: plaintext)
-            return PersistedState(order: Array(legacyEntries.keys), entries: legacyEntries)
+            return Self.migratingLegacyKeys(PersistedState(order: Array(legacyEntries.keys), entries: legacyEntries))
         } catch {
             logger.error("Failed to decrypt per-app style memory, starting fresh: \(error, privacy: .public)")
             return empty
         }
+    }
+
+    /// Back-compat for the `web:`/`app:` key namespacing (see `StyleContextKeyResolver`):
+    /// entries persisted before that change are keyed by a bare bundle id (no prefix). Rewrites
+    /// any such key to `"app:<bundleID>"` on load so old per-app profiles stay reachable under
+    /// the new scheme instead of silently becoming orphaned dead entries. A key that already
+    /// carries a `web:`/`app:` prefix is left untouched. Two legacy bare keys can't collide
+    /// after prefixing (they were already unique bundle ids), so this is a pure rename, not a
+    /// merge.
+    private static func migratingLegacyKeys(_ state: PersistedState) -> PersistedState {
+        func migrate(_ key: String) -> String {
+            (key.hasPrefix(StyleContextKeyResolver.webPrefix) || key.hasPrefix(StyleContextKeyResolver.appPrefix))
+                ? key
+                : StyleContextKeyResolver.appPrefix + key
+        }
+        guard state.order.contains(where: { !$0.hasPrefix(StyleContextKeyResolver.webPrefix) && !$0.hasPrefix(StyleContextKeyResolver.appPrefix) })
+            || state.entries.keys.contains(where: { !$0.hasPrefix(StyleContextKeyResolver.webPrefix) && !$0.hasPrefix(StyleContextKeyResolver.appPrefix) })
+        else {
+            return state
+        }
+        return PersistedState(
+            order: state.order.map(migrate),
+            entries: Dictionary(uniqueKeysWithValues: state.entries.map { (migrate($0.key), $0.value) }),
+            profiles: Dictionary(uniqueKeysWithValues: state.profiles.map { (migrate($0.key), $0.value) }),
+            pendingSinceConsolidation: Dictionary(uniqueKeysWithValues: state.pendingSinceConsolidation.map { (migrate($0.key), $0.value) })
+        )
     }
 
     private func persist() {

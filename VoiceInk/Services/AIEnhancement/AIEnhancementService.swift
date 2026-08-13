@@ -183,7 +183,7 @@ class AIEnhancementService: ObservableObject {
         }()
         let styleMemoryAllowed = !(effectiveLocalCLICommand.map(LocalCLIService.commandGrantsNetworkTools) ?? false)
         let styleMemorySection = styleMemoryAllowed
-            ? Self.styleMemorySection(forApp: frontmostAppBundleID(contextSnapshot: contextSnapshot))
+            ? Self.styleMemorySection(forApp: resolvedStyleContextKey(contextSnapshot: contextSnapshot))
             : ""
 
         return [prompt.finalPromptText, customVocabularySection, contextSection, styleMemorySection]
@@ -191,13 +191,21 @@ class AIEnhancementService: ObservableObject {
             .joined(separator: "\n\n")
     }
 
-    /// Bundle id of the app this enhancement is for. Only the id captured when the recording
-    /// started — a nil snapshot (retry / re-enhance from history) means "unknown app", not
-    /// "whatever's frontmost right now" (that guess previously caused cross-app style bleed:
-    /// re-enhancing an old dictation while a different app is frontmost would read/record under
-    /// the wrong app's memory).
-    private func frontmostAppBundleID(contextSnapshot: RecordingContextSnapshot?) -> String? {
-        contextSnapshot?.appBundleID
+    /// Per-app-style-memory storage key for the app this enhancement is for — `"web:<domain>"`
+    /// for a website visited in a known browser, `"app:<bundleID>"` for everything else (see
+    /// `StyleContextKeyResolver`). Only ever derived from the recording's own snapshot — a nil
+    /// snapshot (retry / re-enhance from history) means "unknown app", not "whatever's
+    /// frontmost right now" (that guess previously caused cross-app style bleed: re-enhancing an
+    /// old dictation while a different app is frontmost would read/record under the wrong app's
+    /// memory). If the snapshot's async web-key resolution (browser tab URL fetch) hadn't
+    /// finished by the time this runs, falls back to deriving the app key synchronously from
+    /// `appBundleID` rather than dropping style memory entirely for that turn.
+    private func resolvedStyleContextKey(contextSnapshot: RecordingContextSnapshot?) -> String? {
+        if let key = contextSnapshot?.styleContextKey {
+            return key
+        }
+        guard let bundleID = contextSnapshot?.appBundleID else { return nil }
+        return StyleContextKeyResolver.appPrefix + bundleID
     }
 
     /// Per-app learned-voice style section (see `PerAppStyleMemory`). A distilled profile
@@ -239,10 +247,10 @@ class AIEnhancementService: ObservableObject {
     /// returns immediately (it only starts a detached Task), so this never adds latency to a
     /// dictation.
     private func recordStyleSample(_ output: String, contextSnapshot: RecordingContextSnapshot?) {
-        guard let bundleID = frontmostAppBundleID(contextSnapshot: contextSnapshot) else { return }
-        let shouldConsolidate = PerAppStyleMemory.shared.record(output: output, forApp: bundleID)
+        guard let key = resolvedStyleContextKey(contextSnapshot: contextSnapshot) else { return }
+        let shouldConsolidate = PerAppStyleMemory.shared.record(output: output, forApp: key)
         if shouldConsolidate {
-            PerAppVoiceProfileConsolidator.shared.consolidateInBackground(forApp: bundleID)
+            PerAppVoiceProfileConsolidator.shared.consolidateInBackground(forApp: key)
         }
     }
 

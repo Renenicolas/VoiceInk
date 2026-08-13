@@ -101,6 +101,10 @@ struct PerAppVoiceProfileManagerView: View {
 
     private func teach() {
         guard let bundleID = teachBundleID else { return }
+        // The picker only offers installed native apps (no web-domain picker here yet), so
+        // teaching always writes an "app:" key — matching what `StyleContextKeyResolver` would
+        // resolve for that same app at recording time.
+        let storageKey = StyleContextKeyResolver.appPrefix + bundleID
         let sample = teachSampleText
         isTeaching = true
         teachError = nil
@@ -110,7 +114,7 @@ struct PerAppVoiceProfileManagerView: View {
                 guard !profile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     throw TeachError.emptyResult
                 }
-                PerAppStyleMemory.shared.setProfile(profile, forApp: bundleID)
+                PerAppStyleMemory.shared.setProfile(profile, forApp: storageKey)
                 await MainActor.run {
                     isTeaching = false
                     teachSampleText = ""
@@ -178,7 +182,7 @@ struct PerAppVoiceProfileManagerView: View {
             .padding(.top, 4)
         } label: {
             HStack(spacing: 8) {
-                if let icon = TriggerAppIconCache.shared.icon(for: bundleID) {
+                if let icon = storageKeyIcon(bundleID) {
                     Image(nsImage: icon)
                         .resizable()
                         .frame(width: 18, height: 18)
@@ -211,7 +215,16 @@ struct PerAppVoiceProfileManagerView: View {
         }
     }
 
-    private func appDisplayName(_ bundleID: String) -> String {
+    /// `storageKey` is `"web:<domain>"` or `"app:<bundleID>"` (see `StyleContextKeyResolver`) —
+    /// pre-migration data may still carry a bare bundle id with no prefix. Website keys have no
+    /// app icon/name to look up; app keys strip the prefix before the usual bundle-id lookups.
+    private func appDisplayName(_ storageKey: String) -> String {
+        if storageKey.hasPrefix(StyleContextKeyResolver.webPrefix) {
+            return String(storageKey.dropFirst(StyleContextKeyResolver.webPrefix.count))
+        }
+        let bundleID = storageKey.hasPrefix(StyleContextKeyResolver.appPrefix)
+            ? String(storageKey.dropFirst(StyleContextKeyResolver.appPrefix.count))
+            : storageKey
         if let match = installedApps.first(where: { $0.bundleId == bundleID }) {
             return match.name
         }
@@ -219,6 +232,14 @@ struct PerAppVoiceProfileManagerView: View {
             return FileManager.default.displayName(atPath: url.path)
         }
         return bundleID
+    }
+
+    private func storageKeyIcon(_ storageKey: String) -> NSImage? {
+        guard !storageKey.hasPrefix(StyleContextKeyResolver.webPrefix) else { return nil }
+        let bundleID = storageKey.hasPrefix(StyleContextKeyResolver.appPrefix)
+            ? String(storageKey.dropFirst(StyleContextKeyResolver.appPrefix.count))
+            : storageKey
+        return TriggerAppIconCache.shared.icon(for: bundleID)
     }
 
     private enum TeachError: LocalizedError {
