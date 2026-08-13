@@ -374,7 +374,7 @@ struct VoiceInkApp: App {
 
             Image(nsImage: image)
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
 
         #if DEBUG
         WindowGroup("Debug") {

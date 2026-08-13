@@ -18,13 +18,19 @@ struct MenuBarView: View {
     @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
     
     var body: some View {
-        VStack {
+        VStack(alignment: .leading, spacing: 4) {
             if hasCompletedOnboardingV2 {
                 completedOnboardingMenu
             } else {
                 onboardingMenu
             }
         }
+        .padding(10)
+        .frame(width: 260)
+        .background(AppTheme.Nino.charcoal)
+        .foregroundStyle(AppTheme.Nino.ivory)
+        .tint(AppTheme.Nino.gold)
+        .buttonStyle(.plain)
     }
 
     private var onboardingMenu: some View {
@@ -33,12 +39,21 @@ struct MenuBarView: View {
                 menuBarManager.focusMainWindow()
             }
 
-            Divider()
+            ninoDivider
 
             Button("Quit Nino Voice") {
                 NSApplication.shared.terminate(nil)
             }
         }
+    }
+
+    /// Thin gold-tinted hairline standing in for `Divider()`, which renders using the
+    /// system separator color and is barely visible against the charcoal background.
+    private var ninoDivider: some View {
+        Rectangle()
+            .fill(AppTheme.Nino.gold.opacity(0.18))
+            .frame(height: 1)
+            .padding(.vertical, 4)
     }
 
     private var isRecordingActive: Bool {
@@ -59,9 +74,10 @@ struct MenuBarView: View {
                     isRecordingActive ? String(localized: "Stop Dictation") : String(localized: "Start Dictation"),
                     systemImage: isRecordingActive ? "stop.circle.fill" : "mic.circle.fill"
                 )
+                .foregroundStyle(isRecordingActive ? AppTheme.Nino.gold : AppTheme.Nino.ivory)
             }
 
-            Divider()
+            ninoDivider
 
             Menu {
                 ForEach(modeManager.enabledConfigurations) { config in
@@ -96,10 +112,12 @@ struct MenuBarView: View {
                 HStack {
                     Image(systemName: "sparkles.square.fill.on.square")
                         .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(AppTheme.Nino.gold)
                     let activeMode = modeManager.currentEffectiveConfiguration
                     Text(String(format: String(localized: "Mode: %@"), activeMode?.name ?? String(localized: "None")))
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 10))
+                        .foregroundStyle(AppTheme.Nino.gold.opacity(0.8))
                 }
             }
 
@@ -121,13 +139,15 @@ struct MenuBarView: View {
                 HStack {
                     Image(systemName: "mic.fill")
                         .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(AppTheme.Nino.gold)
                     Text("Audio Input")
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 10))
+                        .foregroundStyle(AppTheme.Nino.gold.opacity(0.8))
                 }
             }
 
-            Divider()
+            ninoDivider
 
             Button("Retry Last Transcription") {
                 LastTranscriptionService.retryLastTranscription(
@@ -158,7 +178,7 @@ struct MenuBarView: View {
                     LaunchAtLogin.isEnabled = newValue
                 }
 
-            Divider()
+            ninoDivider
 
             Button("Settings") {
                 menuBarManager.openMainWindowAndNavigate(to: "Settings")

@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Carbon.HIToolbox
 
 @MainActor
 class RecordingShortcutManager: ObservableObject {
@@ -93,6 +94,13 @@ class RecordingShortcutManager: ObservableObject {
 
     init(engine: VoiceInkEngine, recorderUIManager: RecorderUIManager) {
         ShortcutMigration.migrateLegacyShortcutsIfNeeded()
+
+        // Default-bind hands-free toggle dictation to Left Option. seedShortcut is a
+        // no-op once the user has customized or cleared it, so this only ever applies once.
+        ShortcutStore.seedShortcut(
+            .modifierOnly(keyCode: UInt16(kVK_Option), modifierFlags: [.option]),
+            for: .handsFreeToggle
+        )
 
         self.primaryRecordingShortcut = ShortcutMigration.migrateShortcutSelection(
             action: .primaryRecording,
@@ -208,6 +216,7 @@ class RecordingShortcutManager: ObservableObject {
     private func refreshShortcutMonitor() {
         let primaryShortcut = primaryRecordingShortcut == .custom ? ShortcutStore.shortcut(for: .primaryRecording) : nil
         let secondaryShortcut = secondaryRecordingShortcut == .custom ? ShortcutStore.shortcut(for: .secondaryRecording) : nil
+        let handsFreeToggleShortcut = ShortcutStore.shortcut(for: .handsFreeToggle)
         var shortcuts = ShortcutStore.shortcuts(for: ShortcutAction.globalUtilityActions)
         var interruptibleRecordingActions = Set<ShortcutAction>()
 
@@ -221,12 +230,25 @@ class RecordingShortcutManager: ObservableObject {
             interruptibleRecordingActions.insert(.secondaryRecording)
         }
 
+        if let handsFreeToggleShortcut {
+            shortcuts[.handsFreeToggle] = handsFreeToggleShortcut
+        }
+
         shortcutMonitor.start(
             shortcuts: shortcuts,
             interruptibleActions: interruptibleRecordingActions,
             onKeyDown: { [weak self] action, eventTime in
                 Task { @MainActor in
                     guard let self else { return }
+
+                    // Hands-free toggle is always-toggle by design: it never goes through
+                    // shortcutModeHandler (the hybrid/push-to-talk state machine), so it can
+                    // never turn into push-to-talk no matter how long the key is held.
+                    if action == .handsFreeToggle {
+                        await self.handleHandsFreeToggleKeyDown()
+                        return
+                    }
+
                     guard let mode = self.recordingMode(for: action) else { return }
                     await self.shortcutModeHandler.handleKeyDown(
                         action: action,
@@ -238,6 +260,11 @@ class RecordingShortcutManager: ObservableObject {
             onKeyUp: { [weak self] action, eventTime in
                 Task { @MainActor in
                     guard let self else { return }
+
+                    // No-op on release: this is the bypass that keeps hands-free toggle from
+                    // ever behaving like push-to-talk.
+                    if action == .handsFreeToggle { return }
+
                     if let mode = self.recordingMode(for: action) {
                         await self.shortcutModeHandler.handleKeyUp(
                             action: action,
@@ -267,6 +294,12 @@ class RecordingShortcutManager: ObservableObject {
         default:
             return nil
         }
+    }
+
+    private func handleHandsFreeToggleKeyDown() async {
+        guard canHandleShortcutAction else { return }
+        // Same primary toggle path the default hotkey uses (modeId: nil = current/default mode).
+        await recorderUIManager.toggleRecorderPanel()
     }
 
     private func handleGlobalShortcut(_ action: ShortcutAction) async {

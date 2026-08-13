@@ -127,6 +127,16 @@ struct SettingsView: View {
                     hasCancelRecordingShortcut = ShortcutStore.shortcut(for: .cancelRecorder) != nil
                 }
 
+                LabeledContent("Hands-free Dictation (tap to start / tap to stop)") {
+                    ShortcutRecorder(
+                        action: .handsFreeToggle,
+                        defaultShortcut: Self.defaultHandsFreeToggleShortcut
+                    ) {
+                        recordingShortcutManager.updateShortcutStatus()
+                    }
+                        .controlSize(.small)
+                }
+
                 ExpandableSettingsRow(
                     isExpanded: $isMiddleClickExpanded,
                     isEnabled: $recordingShortcutManager.isMiddleClickToggleEnabled,
@@ -364,6 +374,11 @@ struct SettingsView: View {
     private static let defaultCancelRecordingShortcut = Shortcut.key(
         keyCode: UInt16(kVK_Escape),
         modifierFlags: []
+    )
+
+    private static let defaultHandsFreeToggleShortcut = Shortcut.modifierOnly(
+        keyCode: UInt16(kVK_Option),
+        modifierFlags: [.option]
     )
 
     @ViewBuilder

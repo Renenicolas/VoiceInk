@@ -3,6 +3,7 @@ import Foundation
 enum ShortcutAction: Hashable {
     case primaryRecording
     case secondaryRecording
+    case handsFreeToggle
     case pasteLastTranscription
     case pasteLastEnhancement
     case retryLastTranscription
@@ -32,6 +33,8 @@ enum ShortcutAction: Hashable {
             return "primaryRecording"
         case .secondaryRecording:
             return "secondaryRecording"
+        case .handsFreeToggle:
+            return "handsFreeToggle"
         case .pasteLastTranscription:
             return "pasteLastTranscription"
         case .pasteLastEnhancement:
@@ -59,6 +62,8 @@ enum ShortcutAction: Hashable {
             return String(localized: "Primary Shortcut")
         case .secondaryRecording:
             return String(localized: "Secondary Shortcut")
+        case .handsFreeToggle:
+            return String(localized: "Hands-free Toggle Dictation")
         case .pasteLastTranscription:
             return String(localized: "Paste Last Transcription")
         case .pasteLastEnhancement:
@@ -103,6 +108,7 @@ enum ShortcutAction: Hashable {
     static let legacyKeyboardShortcutActions: [Self] = [
         .primaryRecording,
         .secondaryRecording,
+        .handsFreeToggle,
         .pasteLastTranscription,
         .pasteLastEnhancement,
         .retryLastTranscription,

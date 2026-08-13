@@ -102,4 +102,23 @@ enum AppTheme {
         static let card: CGFloat = 12
         static let pill: CGFloat = 22
     }
+
+    // Nino brand kit — used for the menu-bar dropdown and the "Nino" AI answer tag.
+    // Source: ~/dev/design-hq/meetnino/BRAND-TOKENS.md (gold), tuned charcoal/ivory pair for this app.
+    enum Nino {
+        static let charcoal = Color(hex: 0x14161A)
+        static let charcoalDeep = Color(hex: 0x0F1113)
+        static let ivory = Color(hex: 0xF4F1EA)
+        static let gold = Color(hex: 0xD4A853)
+    }
+}
+
+private extension Color {
+    init(hex: UInt32) {
+        self.init(
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255
+        )
+    }
 }

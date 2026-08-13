@@ -408,7 +408,7 @@ struct AssistantPanelView: View {
 
     private var fullConversationText: String {
         session.messages.map { msg in
-            let prefix = msg.role == .user ? "You" : "Assistant"
+            let prefix = msg.role == .user ? "You" : "Nino"
             return "\(prefix): \(msg.content)"
         }.joined(separator: "\n\n")
     }
@@ -536,33 +536,51 @@ private struct AssistantMessageBubble: View {
     }
 
     var body: some View {
-        HStack {
-            if isUser {
-                Spacer(minLength: 36)
+        VStack(alignment: isUser ? .trailing : .leading, spacing: 3) {
+            if !isUser {
+                NinoAnswerTag()
             }
 
-            MarkdownContentView(
-                message.content,
-                fontSize: 12,
-                foregroundColor: .white.opacity(isUser ? 0.92 : 0.86),
-                alignment: .leading
-            )
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(isUser ? Color.white.opacity(0.16) : Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(alignment: .bottomTrailing) {
-                    if !isUser {
-                        CopyIconButton(textToCopy: message.content)
-                            .scaleEffect(0.72)
-                            .padding(0)
-                    }
+            HStack {
+                if isUser {
+                    Spacer(minLength: 36)
                 }
-                .help(isUser ? message.content : "")
 
-            if !isUser {
-                Spacer(minLength: 36)
+                MarkdownContentView(
+                    message.content,
+                    fontSize: 12,
+                    foregroundColor: .white.opacity(isUser ? 0.92 : 0.86),
+                    alignment: .leading
+                )
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(isUser ? Color.white.opacity(0.16) : Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(alignment: .bottomTrailing) {
+                        if !isUser {
+                            CopyIconButton(textToCopy: message.content)
+                                .scaleEffect(0.72)
+                                .padding(0)
+                        }
+                    }
+                    .help(isUser ? message.content : "")
+
+                if !isUser {
+                    Spacer(minLength: 36)
+                }
             }
         }
+    }
+}
+
+/// Subtle "Nino" tag shown above the assistant's answer so the response reads as Nino
+/// speaking, not a generic "Assistant".
+private struct NinoAnswerTag: View {
+    var body: some View {
+        Text("NINO")
+            .font(.system(size: 9, weight: .bold, design: .rounded))
+            .kerning(0.6)
+            .foregroundStyle(AppTheme.Nino.gold)
+            .padding(.leading, 10)
     }
 }
