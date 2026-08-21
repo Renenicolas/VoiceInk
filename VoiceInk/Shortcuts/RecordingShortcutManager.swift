@@ -137,6 +137,12 @@ class RecordingShortcutManager: ObservableObject {
             },
             cancelRecording: {
                 await recorderUIManager.cancelRecording()
+            },
+            isStreamingSession: {
+                engine.currentSession != nil
+            },
+            hasCapturedSpeech: {
+                !engine.partialTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             }
         )
 
@@ -383,6 +389,8 @@ final class RecordingShortcutModeHandler {
     private let recordingState: @MainActor () -> RecordingState
     private let toggleRecorderPanel: @MainActor (UUID?) async -> Void
     private let cancelRecording: @MainActor () async -> Void
+    private let isStreamingSession: @MainActor () -> Bool
+    private let hasCapturedSpeech: @MainActor () -> Bool
 
     private var shortcutPressStartTime: TimeInterval?
     private var isHandsFreeRecording = false
@@ -391,22 +399,35 @@ final class RecordingShortcutModeHandler {
     private var interruptedRecordingActions = Set<ShortcutAction>()
     private var activeShortcutCanCancelAccidentalStart = false
     private var lastShortcutPressTime: Date?
+    private var silenceAutoCancelTask: Task<Void, Never>?
+    private var handsFreeSessionID: UUID?
 
     private let shortcutPressCooldown: TimeInterval = 0.5
     private let hybridPressThreshold: TimeInterval = 0.5
+    // A quick tap that leaves a hands-free recording running in the background (see handleKeyUp)
+    // has no other way to stop itself. Without this, a tap that captures no speech records
+    // silently until the shortcut is pressed again, and whatever ambient audio happened in
+    // between gets transcribed and delivered instead of being canceled.
+    private let silenceAutoCancelDelay: TimeInterval
 
     init(
         canHandleShortcutAction: @escaping @MainActor () -> Bool,
         isRecorderVisible: @escaping @MainActor () -> Bool,
         recordingState: @escaping @MainActor () -> RecordingState,
         toggleRecorderPanel: @escaping @MainActor (UUID?) async -> Void,
-        cancelRecording: @escaping @MainActor () async -> Void
+        cancelRecording: @escaping @MainActor () async -> Void,
+        isStreamingSession: @escaping @MainActor () -> Bool,
+        hasCapturedSpeech: @escaping @MainActor () -> Bool,
+        silenceAutoCancelDelay: TimeInterval = 6
     ) {
         self.canHandleShortcutAction = canHandleShortcutAction
         self.isRecorderVisible = isRecorderVisible
         self.recordingState = recordingState
         self.toggleRecorderPanel = toggleRecorderPanel
         self.cancelRecording = cancelRecording
+        self.isStreamingSession = isStreamingSession
+        self.hasCapturedSpeech = hasCapturedSpeech
+        self.silenceAutoCancelDelay = silenceAutoCancelDelay
     }
 
     func reset() {
@@ -416,6 +437,32 @@ final class RecordingShortcutModeHandler {
         activeRecordingShortcutAction = nil
         interruptedRecordingActions.removeAll()
         activeShortcutCanCancelAccidentalStart = false
+        silenceAutoCancelTask?.cancel()
+        silenceAutoCancelTask = nil
+        handsFreeSessionID = nil
+    }
+
+    /// Auto-cancels a hands-free recording that captured no speech, so a quick tap that
+    /// wasn't meant to start a real dictation doesn't sit recording in the background until
+    /// the shortcut is pressed again. Only applies to streaming models, where `hasCapturedSpeech`
+    /// is a real signal — batch models never populate a partial transcript mid-recording, so
+    /// there's no reliable way to tell silence from real speech before the recording ends.
+    private func scheduleSilenceAutoCancel() {
+        silenceAutoCancelTask?.cancel()
+        let sessionID = UUID()
+        handsFreeSessionID = sessionID
+        let delay = silenceAutoCancelDelay
+        silenceAutoCancelTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard let self, !Task.isCancelled else { return }
+            guard self.isHandsFreeRecording,
+                  self.handsFreeSessionID == sessionID,
+                  self.recordingState() == .recording,
+                  self.isStreamingSession(),
+                  !self.hasCapturedSpeech() else { return }
+            self.reset()
+            await self.cancelRecording()
+        }
     }
 
     func handleKeyDown(
@@ -446,6 +493,9 @@ final class RecordingShortcutModeHandler {
         case .toggle, .hybrid:
             if isHandsFreeRecording {
                 isHandsFreeRecording = false
+                silenceAutoCancelTask?.cancel()
+                silenceAutoCancelTask = nil
+                handsFreeSessionID = nil
                 guard canHandleShortcutAction() else { return }
                 await toggleRecorderPanel(modeId)
                 return
@@ -478,6 +528,7 @@ final class RecordingShortcutModeHandler {
         switch mode {
         case .toggle:
             isHandsFreeRecording = true
+            scheduleSilenceAutoCancel()
 
         case .pushToTalk:
             if isRecorderVisible() {
@@ -492,6 +543,7 @@ final class RecordingShortcutModeHandler {
                 await toggleRecorderPanel(modeId)
             } else {
                 isHandsFreeRecording = true
+                scheduleSilenceAutoCancel()
             }
         }
 
