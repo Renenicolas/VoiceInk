@@ -47,6 +47,10 @@ struct StarterModeTemplate: Identifiable {
 }
 
 enum StarterModeCatalog {
+    /// The raw, personalised, no-AI-enhancement mode. Named because the key map
+    /// binds Right-Option to it directly — see ShortcutMigration v2.
+    static let dictationModeId = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
+
     static let templates: [StarterModeTemplate] = [
         StarterModeTemplate(
             kind: .clean,

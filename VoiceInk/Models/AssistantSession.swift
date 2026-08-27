@@ -25,6 +25,7 @@ enum AssistantPhase: Equatable {
 final class AssistantSession: ObservableObject {
     @Published private(set) var phase: AssistantPhase = .inactive
     @Published private(set) var messages: [AssistantDisplayMessage] = []
+    @Published private(set) var isStubEntry = false
 
     private(set) var provider: AIProvider?
     private(set) var modelName: String?
@@ -42,7 +43,13 @@ final class AssistantSession: ObservableObject {
     }
 
     var canSendFollowUp: Bool {
-        provider != nil && !messages.isEmpty && !isBusy
+        (isStubEntry || (provider != nil && !messages.isEmpty)) && !isBusy
+    }
+
+    func beginStubEntry() {
+        reset()
+        isStubEntry = true
+        phase = .ready
     }
 
     func beginInitialResponse(
@@ -53,6 +60,7 @@ final class AssistantSession: ObservableObject {
         modeEmoji: String?,
         promptName: String?
     ) {
+        isStubEntry = false
         self.provider = provider
         self.modelName = modelName
         self.modeName = modeName
@@ -135,6 +143,7 @@ final class AssistantSession: ObservableObject {
         modeEmoji = nil
         promptName = nil
         systemPrompt = nil
+        isStubEntry = false
     }
 
     private func appendOrReplace(message: AssistantDisplayMessage) {

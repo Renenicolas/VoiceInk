@@ -33,6 +33,86 @@ enum ShortcutMigration {
     static func migrateLegacyShortcutsIfNeeded() {
         discardLegacyCustomRecordingShortcutsIfNeeded()
         migrateLegacyKeyboardShortcutsIfNeeded()
+        migrateNinoInterfaceKeyMapIfNeeded()
+    }
+
+    /// Rene's key map, v2 (2026-08-27).
+    ///
+    ///   Right-Option  = the Dictation mode  — raw, personalised, NO AI enhancement
+    ///   Right-Command = Ask Nino            — the notch
+    ///   Left-Option   = paste last enhancement
+    ///
+    /// v1 of this migration moved `primaryRecording` onto Right-Option and cleared
+    /// the Dictation mode shortcut that lived there. That was wrong, and subtly so:
+    /// `primaryRecording` records with whatever mode is ACTIVE, so the moment the
+    /// active mode was an enhancing one, holding Right-Option returned AI-rewritten
+    /// text instead of the raw transcript. The mode shortcut is deterministic —
+    /// it always runs Dictation (`usesAIEnhancement: false`) no matter what is
+    /// active. Right-Option must keep it.
+    ///
+    /// So the only key this frees is Right-Command, and it frees it by unbinding
+    /// `primaryRecording` rather than by relocating it.
+    static func migrateNinoInterfaceKeyMapIfNeeded() {
+        let migrationKey = "Shortcut_NinoInterfaceKeyMapV2Migrated"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+
+        let rightCommand = Shortcut.modifierOnly(keyCode: UInt16(kVK_RightCommand), modifierFlags: [.command])
+        let rightOption = Shortcut.modifierOnly(keyCode: UInt16(kVK_RightOption), modifierFlags: [.option])
+        let leftOption = Shortcut.modifierOnly(keyCode: UInt16(kVK_Option), modifierFlags: [.option])
+        let fn = Shortcut.modifierOnly(keyCode: UInt16(kVK_Function), modifierFlags: [.function])
+        let dictationMode = ShortcutAction.mode(StarterModeCatalog.dictationModeId)
+
+        // Repair v1: if v1 pushed primaryRecording onto Right-Option, take it back
+        // off and restore the Dictation mode there. Only touch it if it still looks
+        // exactly like v1 left it — a hand-customised binding is never overwritten.
+        if ShortcutStore.shortcut(for: .primaryRecording) == rightOption {
+            ShortcutStore.setShortcut(nil, for: .primaryRecording)
+            NSLog("Nino key map v2: unbound primaryRecording from Right-Option (it enhanced when the active mode did)")
+        }
+        if ShortcutStore.shortcut(for: dictationMode) == nil,
+           actionOccupying(rightOption, excluding: dictationMode) == nil {
+            ShortcutStore.setShortcut(rightOption, for: dictationMode)
+            NSLog("Nino key map v2: Right-Option restored to Dictation (raw, no AI enhancement)")
+        }
+
+        // Free Left-Option for paste, then move paste off Fn (not on every keyboard).
+        if ShortcutStore.shortcut(for: .handsFreeToggle) == leftOption {
+            ShortcutStore.setShortcut(nil, for: .handsFreeToggle)
+        }
+        moveShortcut(for: .pasteLastEnhancement, from: fn, to: leftOption)
+
+        // Free Right-Command for Ask Nino by unbinding primaryRecording, never by
+        // stealing a key that carries a mode.
+        if ShortcutStore.shortcut(for: .primaryRecording) == rightCommand {
+            ShortcutStore.setShortcut(nil, for: .primaryRecording)
+        }
+        if ShortcutStore.rawShortcut(for: .assistantAsk) == nil,
+           !ShortcutStore.isShortcutCleared(for: .assistantAsk) {
+            if let blocker = actionOccupying(rightCommand, excluding: .assistantAsk) {
+                NSLog("Nino key map v2: skipped Ask Nino, Right-Command held by %@", blocker.storageName)
+            } else {
+                ShortcutStore.setShortcut(rightCommand, for: .assistantAsk)
+            }
+        }
+
+        UserDefaults.standard.set(true, forKey: migrationKey)
+    }
+
+    private static func moveShortcut(for action: ShortcutAction, from oldShortcut: Shortcut, to newShortcut: Shortcut) {
+        guard ShortcutStore.shortcut(for: action) == oldShortcut else { return }
+        guard actionOccupying(newShortcut, excluding: action) == nil else {
+            NSLog("Nino shortcut migration skipped %@: %@ is already occupied", action.storageName, newShortcut.displayString)
+            return
+        }
+        ShortcutStore.setShortcut(newShortcut, for: action)
+    }
+
+    private static func actionOccupying(_ shortcut: Shortcut, excluding excludedAction: ShortcutAction) -> ShortcutAction? {
+        let storedActions = ShortcutAction.legacyKeyboardShortcutActions +
+            ModeManager.shared.configurations.map { ShortcutAction.mode($0.id) }
+        return storedActions.first {
+            $0 != excludedAction && ShortcutStore.shortcut(for: $0)?.conflicts(with: shortcut) == true
+        }
     }
 
     static func migrateLegacyKeyboardShortcutsIfNeeded() {
@@ -255,6 +335,8 @@ enum ShortcutMigration {
         case .secondaryRecording:
             return ["toggleMiniRecorder2"]
         case .handsFreeToggle:
+            return []
+        case .assistantAsk:
             return []
         case .pasteLastTranscription:
             return ["pasteLastTranscription"]

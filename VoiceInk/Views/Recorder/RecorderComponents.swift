@@ -28,7 +28,7 @@ struct RecorderToggleButton: View {
                     Image(systemName: icon).font(.system(size: 13))
                 }
             }
-            .foregroundColor(disabled ? .white.opacity(0.3) : (isEnabled ? .white : .white.opacity(0.6)))
+            .foregroundColor(disabled ? NinoPalette.cream.opacity(0.3) : (isEnabled ? NinoPalette.gold : NinoPalette.creamDim))
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(disabled)
@@ -91,22 +91,21 @@ struct RecorderRecordButton: View {
         switch visualState {
         case .ready:
             return StateColors(
-                surface: Color(red: 0.30, green: 0.30, blue: 0.32),
-                border: Color(red: 0.42, green: 0.42, blue: 0.44),
-                mark: Color(red: 0.78, green: 0.78, blue: 0.80)
+                surface: NinoPalette.surface2,
+                border: NinoPalette.border,
+                mark: NinoPalette.gold
             )
         case .recording:
-            let red = AppTheme.Status.error
             return StateColors(
-                surface: red.opacity(0.92),
-                border: red.opacity(0.98),
-                mark: .white
+                surface: NinoPalette.surface3,
+                border: NinoPalette.live,
+                mark: NinoPalette.live
             )
         case .processing:
             return StateColors(
-                surface: Color.white.opacity(0.13),
-                border: Color.white.opacity(0.18),
-                mark: Color.white.opacity(0.86)
+                surface: NinoPalette.surface3,
+                border: NinoPalette.border,
+                mark: NinoPalette.gold2
             )
         }
     }
@@ -162,21 +161,22 @@ struct RecorderCloseButton: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.13))
+                    .fill(NinoPalette.surface3)
                     .overlay(
                         Circle()
-                            .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.6)
+                            .strokeBorder(NinoPalette.border, lineWidth: 0.6)
                     )
 
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.86))
+                    .foregroundColor(NinoPalette.cream)
             }
             .frame(width: 21, height: 21)
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .help("Close")
+        .accessibilityLabel(Text("Close"))
     }
 }
 
@@ -309,7 +309,7 @@ struct LiveTranscriptView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 Text(text)
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(NinoPalette.creamDim)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
@@ -351,15 +351,15 @@ struct RecorderStatusDisplay: View {
     var body: some View {
         Group {
             if currentState == .enhancing {
-                ProcessingStatusDisplay(mode: .enhancing, color: .white).transition(.opacity)
+                ProcessingStatusDisplay(mode: .enhancing, color: NinoPalette.gold2).transition(.opacity)
             } else if currentState == .transcribing {
-                ProcessingStatusDisplay(mode: .transcribing, color: .white).transition(.opacity)
+                ProcessingStatusDisplay(mode: .transcribing, color: NinoPalette.gold2).transition(.opacity)
             } else if currentState == .recording {
-                AudioVisualizer(audioMeter: audioMeter, color: .white, isActive: true)
+                AudioVisualizer(audioMeter: audioMeter, color: NinoPalette.live, isActive: true)
                     .scaleEffect(y: menuBarHeight != nil ? min(1.0, (menuBarHeight! - 8) / 25) : 1.0, anchor: .center)
                     .transition(.opacity)
             } else {
-                StaticVisualizer(color: .white)
+                StaticVisualizer(color: NinoPalette.gold)
                     .scaleEffect(y: menuBarHeight != nil ? min(1.0, (menuBarHeight! - 8) / 25) : 1.0, anchor: .center)
                     .transition(.opacity)
             }
@@ -379,7 +379,7 @@ struct AssistantPanelView: View {
     @FocusState private var isFollowUpFieldFocused: Bool
 
     private let horizontalPadding: CGFloat = 20
-    private let followUpTextColor = Color.white.opacity(0.9)
+    private let followUpTextColor = NinoPalette.cream
 
     private var statusText: String? {
         switch session.phase {
@@ -425,7 +425,7 @@ struct AssistantPanelView: View {
                     if let statusText {
                         Text(statusText)
                             .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.62))
+                            .foregroundColor(NinoPalette.creamDim)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -473,15 +473,15 @@ struct AssistantPanelView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(Color.white.opacity(0.10))
+            .background(NinoPalette.surface2)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             Button(action: sendDraftMessage) {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(canSendDraft ? .black : .white.opacity(0.35))
+                    .foregroundColor(canSendDraft ? NinoPalette.ink : NinoPalette.cream.opacity(0.35))
                     .frame(width: 24, height: 24)
-                    .background(canSendDraft ? Color.white.opacity(0.88) : Color.white.opacity(0.10))
+                    .background(canSendDraft ? NinoPalette.gold : NinoPalette.surface3)
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -549,12 +549,12 @@ private struct AssistantMessageBubble: View {
                 MarkdownContentView(
                     message.content,
                     fontSize: 12,
-                    foregroundColor: .white.opacity(isUser ? 0.92 : 0.86),
+                    foregroundColor: isUser ? NinoPalette.cream : NinoPalette.creamDim,
                     alignment: .leading
                 )
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
-                    .background(isUser ? Color.white.opacity(0.16) : Color.white.opacity(0.08))
+                    .background(isUser ? NinoPalette.surface3 : NinoPalette.surface2)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(alignment: .bottomTrailing) {
                         if !isUser {
@@ -580,7 +580,7 @@ private struct NinoAnswerTag: View {
         Text("NINO")
             .font(.system(size: 9, weight: .bold, design: .rounded))
             .kerning(0.6)
-            .foregroundStyle(AppTheme.Nino.gold)
+            .foregroundStyle(NinoPalette.gold)
             .padding(.leading, 10)
     }
 }

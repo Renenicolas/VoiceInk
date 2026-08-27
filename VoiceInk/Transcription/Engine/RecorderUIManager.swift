@@ -31,6 +31,7 @@ protocol RecorderPanelPresenting: AnyObject {
 
 @MainActor
 class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
+    var isAssistantVisible: Bool { engine?.assistantSession.isVisible == true }
     @Published var recorderPanelStyle: RecorderPanelStyle = .stored {
         didSet {
             guard oldValue != recorderPanelStyle else { return }
@@ -95,9 +96,9 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                             await self?.dismissRecorderPanel()
                         }
                     },
-                    onAssistantFollowUp: { [weak engine] text in
+                    onAssistantFollowUp: { [weak self] text in
                         Task { @MainActor in
-                            await engine?.sendAssistantFollowUp(text)
+                            await self?.sendAssistantMessage(text)
                         }
                     }
                 )
@@ -119,9 +120,9 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                             await self?.dismissRecorderPanel()
                         }
                     },
-                    onAssistantFollowUp: { [weak engine] text in
+                    onAssistantFollowUp: { [weak self] text in
                         Task { @MainActor in
-                            await engine?.sendAssistantFollowUp(text)
+                            await self?.sendAssistantMessage(text)
                         }
                     }
                 )
@@ -194,6 +195,31 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         hideRecorderPanel()
         isRecorderPanelVisible = false
         engine.assistantSession.reset()
+    }
+
+    func toggleAssistantAsk() async {
+        guard let engine, engine.recordingState == .idle else { return }
+        if isRecorderPanelVisible && engine.assistantSession.isVisible {
+            await dismissRecorderPanel()
+            return
+        }
+
+        recorderPanelStyle = .notch
+        engine.assistantSession.beginStubEntry()
+        isRecorderPanelVisible = true
+    }
+
+    private func sendAssistantMessage(_ text: String) async {
+        guard let engine else { return }
+        if engine.assistantSession.isStubEntry {
+            let message = engine.assistantSession.beginFollowUp(text)
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard engine.assistantSession.isStubEntry,
+                  engine.assistantSession.hasMessage(id: message.id) else { return }
+            engine.assistantSession.finishFollowUp("Wiring in progress — OpenClaw lands next.")
+        } else {
+            await engine.sendAssistantFollowUp(text)
+        }
     }
 
     func resetOnLaunch() async {

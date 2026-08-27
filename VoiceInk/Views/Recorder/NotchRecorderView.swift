@@ -98,9 +98,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     }
 
     private var shouldShowCloseButton: Bool {
-        displayState == .assistant &&
-            stateProvider.recordingState == .idle &&
-            !assistantSession.isBusy
+        displayState == .assistant
     }
 
     private var liveAssistantFollowUpText: String {
@@ -135,7 +133,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             assistantPanel
         }
         .frame(width: pillWidth, height: pillHeight)
-        .background(Color.black)
+        .background(NinoPalette.ink)
         .clipShape(
             NotchShape(
                 topCornerRadius: displayState == .liveText ? 12 : 8,
@@ -196,7 +194,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     private var liveTextPanel: some View {
         VStack(spacing: 0) {
             if displayState == .liveText {
-                Divider().background(Color(red: 0.957, green: 0.945, blue: 0.918).opacity(0.10))
+                Divider().background(NinoPalette.border)
                 LiveTranscriptView(text: stateProvider.partialTranscript)
                     .padding(.horizontal, 8)
             }
@@ -208,7 +206,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     private var assistantPanel: some View {
         VStack(spacing: 0) {
             if displayState == .assistant {
-                Divider().background(Color(red: 0.957, green: 0.945, blue: 0.918).opacity(0.10))
+                Divider().background(NinoPalette.border)
                 AssistantPanelView(
                     session: assistantSession,
                     liveFollowUpText: liveAssistantFollowUpText,

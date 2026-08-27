@@ -314,6 +314,8 @@ class RecordingShortcutManager: ObservableObject {
 
     private func handleGlobalShortcut(_ action: ShortcutAction) async {
         switch action {
+        case .assistantAsk:
+            await recorderUIManager.toggleAssistantAsk()
         case .pasteLastTranscription:
             LastTranscriptionService.pasteLastTranscription(from: engine.modelContext)
         case .pasteLastEnhancement:

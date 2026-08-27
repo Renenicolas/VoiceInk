@@ -112,6 +112,11 @@ final class RecorderPanelShortcutManager: ObservableObject {
     }
 
     private func handleEscapeShortcut() async {
+        if recorderUIManager.isAssistantVisible {
+            resetEscapeState()
+            await recorderUIManager.dismissRecorderPanel()
+            return
+        }
         guard ShortcutStore.shortcut(for: .cancelRecorder) == nil else { return }
 
         let now = Date()
