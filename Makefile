@@ -112,3 +112,36 @@ help:
 	@echo "  all                Run full build process (default)"
 	@echo "  clean              Remove build artifacts"
 	@echo "  help               Show this help message"
+# Build signed with the stable local certificate ("Nino Voice Local Signing").
+#
+# `make local` signs ad-hoc, which mints a NEW code-signing identity on every
+# build. macOS TCC keys Microphone and Accessibility grants to that identity, so
+# every ad-hoc rebuild silently revokes both and the app looks broken: hotkeys
+# stop, dictation stops pasting. Signing with one stable certificate keeps the
+# identity constant, so the grants survive rebuilds and only have to be given
+# once. Use this target for anything that gets installed and actually used.
+NINO_SIGN_IDENTITY ?= Nino Voice Local Signing
+
+nino: check setup
+	@echo "Building Nino Voice signed with '$(NINO_SIGN_IDENTITY)'..."
+	@security find-identity -v -p codesigning | grep -q "$(NINO_SIGN_IDENTITY)" || \
+		{ echo "Missing signing identity '$(NINO_SIGN_IDENTITY)' in the login keychain."; exit 1; }
+	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
+		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
+		-xcconfig LocalBuild.xcconfig \
+		CODE_SIGN_IDENTITY="$(NINO_SIGN_IDENTITY)" \
+		CODE_SIGN_STYLE=Manual \
+		CODE_SIGNING_REQUIRED=YES \
+		CODE_SIGNING_ALLOWED=YES \
+		DEVELOPMENT_TEAM="" \
+		CODE_SIGN_ENTITLEMENTS="$(CURDIR)/VoiceInk/VoiceInk.local.entitlements" \
+		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
+		build
+	@APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Debug/VoiceInk.app" && \
+	if [ -d "$$APP_PATH" ]; then \
+		rm -rf "$$HOME/Downloads/VoiceInk.app"; \
+		ditto "$$APP_PATH" "$$HOME/Downloads/VoiceInk.app"; \
+		xattr -cr "$$HOME/Downloads/VoiceInk.app"; \
+		echo "Signed build at ~/Downloads/VoiceInk.app"; \
+		codesign -dvvv "$$HOME/Downloads/VoiceInk.app" 2>&1 | grep -E "Authority|CDHash=" | head -2; \
+	fi
