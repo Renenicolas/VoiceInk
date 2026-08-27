@@ -1,6 +1,8 @@
 import SwiftUI
 
 enum OnboardingStage: String, CaseIterable {
+    case welcome
+    case intent
     case permissions
     case microphone
     case model
@@ -10,17 +12,22 @@ enum OnboardingStage: String, CaseIterable {
     case trust
     case shortcuts
     case license
+    case allSet
 
     var stepNumber: Int {
         switch self {
-        case .permissions:
+        case .welcome:
             return 1
-        case .microphone:
+        case .intent:
             return 2
-        case .model:
+        case .permissions:
             return 3
-        case .api:
+        case .microphone:
             return 4
+        case .model:
+            return 5
+        case .api:
+            return 6
         case .experience:
             return 5
         case .contextAwareness:
@@ -31,11 +38,17 @@ enum OnboardingStage: String, CaseIterable {
             return 8
         case .license:
             return 9
+        case .allSet:
+            return 10
         }
     }
 
     var systemImage: String {
         switch self {
+        case .welcome:
+            return "sparkles"
+        case .intent:
+            return "text.bubble"
         case .permissions:
             return "lock.shield"
         case .microphone:
@@ -54,11 +67,17 @@ enum OnboardingStage: String, CaseIterable {
             return "keyboard"
         case .license:
             return "checkmark.seal.fill"
+        case .allSet:
+            return "checkmark"
         }
     }
 
     var title: String {
         switch self {
+        case .welcome:
+            return String(localized: "Meet Nino Voice")
+        case .intent:
+            return String(localized: "Nino works for you.")
         case .permissions:
             return String(localized: "Allow Permissions")
         case .microphone:
@@ -77,11 +96,17 @@ enum OnboardingStage: String, CaseIterable {
             return String(localized: "Set Your Shortcuts")
         case .license:
             return String(localized: "Buy Nino Voice License")
+        case .allSet:
+            return String(localized: "You're all set.")
         }
     }
 
     var subtitle: String {
         switch self {
+        case .welcome:
+            return String(localized: "Your voice, ready wherever you work.")
+        case .intent:
+            return String(localized: "Tell Nino what would make your day easier before we set anything up.")
         case .permissions:
             return String(localized: "Allow Nino Voice to work across all your apps.")
         case .microphone:
@@ -100,11 +125,13 @@ enum OnboardingStage: String, CaseIterable {
             return String(localized: "Choose your own keys for these actions. Pick keys that don't conflict with other apps you use. You can change these anytime in Settings.")
         case .license:
             return String(localized: "Activate an existing key, purchase a license, or start a 7-day free trial.")
+        case .allSet:
+            return String(localized: "Nino Voice is ready from any app.")
         }
     }
 
     static var baseStepCount: Int {
-        4
+        6
     }
 }
 
@@ -116,7 +143,7 @@ enum OnboardingPermissionKind: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     static var required: [OnboardingPermissionKind] {
-        [.microphone, .accessibility]
+        [.microphone]
     }
 
     var isRequired: Bool {
@@ -184,13 +211,13 @@ enum OnboardingPermissionStatus: Equatable {
     var color: Color {
         switch self {
         case .granted:
-            return AppTheme.Text.secondary
+            return NinoPalette.creamDim
         case .needsAccess:
-            return AppTheme.Text.secondary
+            return NinoPalette.creamDim
         case .denied, .restricted:
-            return AppTheme.Status.error
+            return NinoPalette.gold
         case .unknown:
-            return AppTheme.Text.secondary
+            return NinoPalette.creamDim
         }
     }
 }

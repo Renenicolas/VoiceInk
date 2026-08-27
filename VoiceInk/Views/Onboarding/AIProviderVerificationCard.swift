@@ -68,7 +68,7 @@ struct AIProviderVerificationCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(selectedProvider.rawValue)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(AppTheme.Text.primary)
+                    .foregroundColor(NinoPalette.cream)
             }
 
             Spacer(minLength: 0)
@@ -83,10 +83,10 @@ struct AIProviderVerificationCard: View {
                             .font(.system(size: 9, weight: .bold))
                     }
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(AppTheme.Text.secondary)
+                    .foregroundColor(NinoPalette.creamDim)
                     .padding(.horizontal, 11)
                     .padding(.vertical, 7)
-                    .background(Capsule().fill(AppTheme.Surface.controlActive))
+                    .background(Capsule().fill(NinoPalette.surface3))
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $isSwitchingProvider, arrowEdge: .bottom) {
@@ -106,7 +106,7 @@ struct AIProviderVerificationCard: View {
             HStack(alignment: .center) {
                 Text(String(format: String(localized: "%@ API Key"), selectedProvider.rawValue))
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(AppTheme.Text.primary)
+                    .foregroundColor(NinoPalette.cream)
 
                 Spacer()
 
@@ -120,7 +120,7 @@ struct AIProviderVerificationCard: View {
                                 .font(.system(size: 9, weight: .semibold))
                         }
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(AppTheme.Text.secondary)
+                        .foregroundColor(NinoPalette.creamDim)
                     }
                     .buttonStyle(.plain)
                 }
@@ -133,11 +133,11 @@ struct AIProviderVerificationCard: View {
                 .frame(height: 38)
                 .background(
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(AppTheme.Surface.control)
+                        .fill(NinoPalette.surface2)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(AppTheme.Border.control.opacity(0.45), lineWidth: 1)
+                        .stroke(NinoPalette.border.opacity(0.45), lineWidth: 1)
                 )
         }
     }
@@ -158,12 +158,12 @@ struct AIProviderVerificationCard: View {
                     Text(isVerifying ? LocalizedStringKey("Testing...") : LocalizedStringKey("Test connection"))
                 }
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(canVerify ? AppTheme.Action.primaryForeground : AppTheme.Action.disabledForeground)
+                .foregroundColor(canVerify ? NinoPalette.ink : NinoPalette.ink)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(canVerify ? AppTheme.Action.primaryFill : AppTheme.Action.disabledFill)
+                        .fill(canVerify ? NinoPalette.gold2 : NinoPalette.goldDim)
                 )
             }
             .buttonStyle(.plain)
@@ -177,12 +177,12 @@ struct AIProviderVerificationCard: View {
             HStack(spacing: 9) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppTheme.Status.positive)
+                    .foregroundColor(NinoPalette.gold2)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Connection verified.")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(AppTheme.Text.primary)
+                        .foregroundColor(NinoPalette.cream)
                 }
             }
 
@@ -197,19 +197,19 @@ struct AIProviderVerificationCard: View {
             HStack(alignment: .top, spacing: 7) {
                 Image(systemName: verificationSucceeded ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(verificationSucceeded ? AppTheme.Status.positive : AppTheme.Status.error)
+                    .foregroundColor(verificationSucceeded ? NinoPalette.gold2 : NinoPalette.gold)
                     .padding(.top, 1)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(verificationMessage)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(verificationSucceeded ? AppTheme.Text.secondary : AppTheme.Status.error)
+                        .foregroundColor(verificationSucceeded ? NinoPalette.creamDim : NinoPalette.gold)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let verificationDetailMessage, !verificationSucceeded {
                         Text(verificationDetailMessage)
                             .font(.system(size: 11))
-                            .foregroundColor(AppTheme.Status.error.opacity(0.82))
+                            .foregroundColor(NinoPalette.gold.opacity(0.82))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -217,7 +217,7 @@ struct AIProviderVerificationCard: View {
         } else {
             Text("Test the connection to continue.")
                 .font(.system(size: 12))
-                .foregroundColor(AppTheme.Text.secondary)
+                .foregroundColor(NinoPalette.creamDim)
         }
     }
 
@@ -355,7 +355,7 @@ private struct ProviderChoiceButton: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(provider.rawValue)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(AppTheme.Text.primary)
+                        .foregroundColor(NinoPalette.cream)
                         .lineLimit(1)
 
                     if provider == .groq {
@@ -368,7 +368,7 @@ private struct ProviderChoiceButton: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(AppTheme.Text.secondary)
+                        .foregroundColor(NinoPalette.creamDim)
                 }
             }
             .padding(.horizontal, 10)
@@ -386,15 +386,15 @@ private struct RecommendedProviderPill: View {
     var body: some View {
         Text("Recommended")
             .font(.system(size: 9, weight: .semibold))
-            .foregroundColor(AppTheme.Text.muted)
+            .foregroundColor(NinoPalette.creamDim)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Capsule().fill(AppTheme.Surface.control.opacity(0.55)))
+            .background(Capsule().fill(NinoPalette.surface2.opacity(0.55)))
             .overlay(
                 Capsule()
-                    .stroke(AppTheme.Border.control.opacity(0.28), lineWidth: 1)
+                    .stroke(NinoPalette.border.opacity(0.28), lineWidth: 1)
             )
     }
 }

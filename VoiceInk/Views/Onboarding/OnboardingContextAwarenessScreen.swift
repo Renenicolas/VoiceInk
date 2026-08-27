@@ -33,24 +33,24 @@ private struct OnboardingContextAwarenessContent: View {
             VStack(spacing: 18) {
                 Image(systemName: "sparkles.square.fill.on.square")
                     .font(.system(size: 24, weight: .semibold))
-                    .foregroundColor(AppTheme.Text.primary)
+                    .foregroundColor(NinoPalette.cream)
                     .frame(width: 56, height: 56)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(AppTheme.Surface.controlActive)
+                            .fill(NinoPalette.surface3)
                     )
 
                 VStack(spacing: 10) {
                     Text("Nino Voice is context-aware.")
                         .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(AppTheme.Text.primary)
+                        .foregroundColor(NinoPalette.cream)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text("Nino Voice automatically understands what you are working with and selects your preferred setup. You can always configure this by editing or creating new modes.")
                         .font(.system(size: 15))
-                        .foregroundColor(AppTheme.Text.secondary)
+                        .foregroundColor(NinoPalette.creamDim)
                         .multilineTextAlignment(.center)
                         .lineLimit(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -75,7 +75,7 @@ private struct OnboardingContextAwarenessContent: View {
     private var optionSwitchingText: some View {
         Text("Note: Press Option 1-9 during recording to switch modes manually.")
             .font(.system(size: 13, weight: .medium))
-            .foregroundColor(AppTheme.Text.secondary)
+            .foregroundColor(NinoPalette.creamDim)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -144,22 +144,22 @@ private struct ContextAwarenessModePill: View {
         HStack(spacing: 8) {
             Image(systemName: model.systemImage)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(AppTheme.Text.secondary)
+                .foregroundColor(NinoPalette.creamDim)
 
             Text(LocalizedStringKey(model.title))
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.cream)
                 .lineLimit(1)
         }
         .padding(.horizontal, 14)
         .frame(height: 42)
         .background(
             Capsule()
-                .fill(AppTheme.Surface.control.opacity(0.84))
+                .fill(NinoPalette.surface2.opacity(0.84))
         )
         .overlay(
             Capsule()
-                .stroke(AppTheme.Border.subtle, lineWidth: 1)
+                .stroke(NinoPalette.border, lineWidth: 1)
         )
     }
 }
@@ -171,34 +171,34 @@ private struct ContextAwarenessModeHub: View {
         HStack(spacing: 8) {
             Image(systemName: "sparkles.square.fill.on.square")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(AppTheme.Text.secondary)
+                .foregroundColor(NinoPalette.creamDim)
                 .frame(width: 18)
 
             Text("Nino Voice Modes")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.cream)
                 .lineLimit(1)
         }
         .padding(.horizontal, 18)
         .frame(height: 46)
         .background(
             Capsule()
-                .fill(AppTheme.Surface.control.opacity(0.92))
+                .fill(NinoPalette.surface2.opacity(0.92))
         )
         .overlay(
             Capsule()
-                .stroke(AppTheme.Border.subtle.opacity(0.88), lineWidth: 1)
+                .stroke(NinoPalette.border.opacity(0.88), lineWidth: 1)
         )
         .overlay(
             Capsule()
                 .stroke(
                     AngularGradient(
                         colors: [
-                            AppTheme.Border.subtle.opacity(0.20),
-                            Color.white.opacity(0.72),
-                            AppTheme.Sidebar.modes.opacity(0.86),
-                            Color.white.opacity(0.54),
-                            AppTheme.Border.subtle.opacity(0.20)
+                            NinoPalette.border.opacity(0.20),
+                            NinoPalette.cream.opacity(0.72),
+                            NinoPalette.gold.opacity(0.86),
+                            NinoPalette.cream.opacity(0.54),
+                            NinoPalette.border.opacity(0.20)
                         ],
                         center: .center,
                         angle: borderRotation
@@ -208,14 +208,18 @@ private struct ContextAwarenessModeHub: View {
         )
         .overlay(
             Capsule()
-                .stroke(Color.white.opacity(0.28), lineWidth: 0.7)
+                .stroke(NinoPalette.cream.opacity(0.28), lineWidth: 0.7)
                 .padding(1.5)
         )
-        .shadow(color: AppTheme.Sidebar.modes.opacity(0.22), radius: 16, y: 8)
-        .shadow(color: Color.white.opacity(0.18), radius: 7, y: -1)
+        .shadow(color: NinoPalette.gold.opacity(0.22), radius: 16, y: 8)
+        .shadow(color: NinoPalette.cream.opacity(0.18), radius: 7, y: -1)
         .onAppear {
-            withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) {
+            if OnboardingMotion.reduceMotion {
                 borderRotation = .degrees(360)
+            } else {
+                withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) {
+                    borderRotation = .degrees(360)
+                }
             }
         }
     }

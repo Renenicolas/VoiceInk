@@ -1,110 +1,161 @@
+import AppKit
 import SwiftUI
 
 struct OnboardingShortcutsScreen: View {
     let contentMaxWidth: CGFloat
     let onBack: () -> Void
     let onContinue: () -> Void
+    @State private var pressedShortcut: NinoOnboardingShortcut?
 
     var body: some View {
-        OnboardingStepScreen(
-            systemImage: OnboardingStage.shortcuts.systemImage,
-            title: OnboardingStage.shortcuts.title,
-            subtitle: OnboardingStage.shortcuts.subtitle,
-            contentMaxWidth: max(contentMaxWidth, 560),
-            showsHeader: true
-        ) {
-            OnboardingShortcutsList()
-        } bottomBar: {
-            OnboardingBottomBar(
-                leadingTitle: "Back",
-                primaryTitle: "Continue",
-                isPrimaryEnabled: true,
-                onLeading: onBack,
-                onPrimary: onContinue
-            )
+        ZStack {
+            OnboardingGoldBackground()
+
+            OnboardingStepScreen(
+                systemImage: OnboardingStage.shortcuts.systemImage,
+                title: "Four keys. Nino everywhere.",
+                subtitle: "Press any one of these shortcuts now to continue.",
+                contentMaxWidth: max(contentMaxWidth, 620)
+            ) {
+                VStack(spacing: 10) {
+                    ForEach(NinoOnboardingShortcut.allCases) { shortcut in
+                        shortcutRow(shortcut)
+                    }
+                }
+                .background(ShortcutKeyEventObserver { pressedShortcut = $0 })
+            } bottomBar: {
+                OnboardingBottomBar(
+                    leadingTitle: "Back",
+                    primaryTitle: pressedShortcut == nil ? "Press a shortcut" : "Looks good",
+                    isPrimaryEnabled: pressedShortcut != nil,
+                    onLeading: onBack,
+                    onPrimary: onContinue
+                )
+            }
+        }
+    }
+
+    private func shortcutRow(_ shortcut: NinoOnboardingShortcut) -> some View {
+        HStack(spacing: 16) {
+            Text(shortcut.keyLabel)
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(pressedShortcut == shortcut ? NinoPalette.ink : NinoPalette.gold2)
+                .frame(width: 132, height: 34)
+                .background(
+                    pressedShortcut == shortcut ? NinoPalette.gold2 : NinoPalette.surface3,
+                    in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(shortcut.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(NinoPalette.cream)
+                Text(shortcut.detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(NinoPalette.creamDim)
+            }
+
+            Spacer()
+
+            if pressedShortcut == shortcut {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(NinoPalette.gold2)
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 66)
+        .background(NinoPalette.surface.opacity(0.88), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(NinoPalette.border, lineWidth: 1)
         }
     }
 }
 
-/// Each row binds a distinct, user-assignable ``ShortcutAction``. Conflict
-/// checking and persistence are handled entirely by ``ShortcutRecorder`` /
-/// ``ShortcutStore`` — this view only supplies the four actions and labels.
-private struct OnboardingShortcutsList: View {
-    private static let dictationModeId = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
-    private static let liveAnswersModeId = UUID(uuidString: "10000000-0000-0000-0000-000000000008")!
+enum NinoOnboardingShortcut: String, CaseIterable, Identifiable {
+    case rightOption
+    case rightCommand
+    case commandOption
+    case leftOption
 
-    private struct Row: Identifiable {
-        let id: String
-        let title: String
-        let subtitle: String
-        let action: ShortcutAction
+    var id: String { rawValue }
+
+    var keyLabel: String {
+        switch self {
+        case .rightOption: "Right-Option"
+        case .rightCommand: "Right-Command"
+        case .commandOption: "Command+Option"
+        case .leftOption: "Left-Option"
+        }
     }
 
-    private var rows: [Row] {
-        [
-            Row(
-                id: "primaryRecording",
-                title: String(localized: "Magic Modes"),
-                subtitle: String(localized: "Start recording with your active, app-aware mode."),
-                action: .primaryRecording
-            ),
-            Row(
-                id: "dictation",
-                title: String(localized: "Pure Transcription"),
-                subtitle: String(localized: "Jump straight to raw dictation, no AI enhancement."),
-                action: .mode(Self.dictationModeId)
-            ),
-            Row(
-                id: "liveAnswers",
-                title: String(localized: "Answers Live"),
-                subtitle: String(localized: "Ask a question with live web search."),
-                action: .mode(Self.liveAnswersModeId)
-            ),
-            Row(
-                id: "pasteLastEnhancement",
-                title: String(localized: "Paste Last Enhanced"),
-                subtitle: String(localized: "Paste your most recent enhanced transcription again."),
-                action: .pasteLastEnhancement
-            )
-        ]
+    var title: String {
+        switch self {
+        case .rightOption: "Hold to talk"
+        case .rightCommand: "Ask Nino"
+        case .commandOption: "Enhanced, per-app voice"
+        case .leftOption: "Paste last"
+        }
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                if index > 0 {
-                    Divider().opacity(0.5)
-                }
+    var detail: String {
+        switch self {
+        case .rightOption: "Raw transcript, no AI"
+        case .rightCommand: "Ask a question from anywhere"
+        case .commandOption: "Nino matches how you write in each app"
+        case .leftOption: "Paste your most recent result again"
+        }
+    }
+}
 
-                shortcutRow(row)
+private struct ShortcutKeyEventObserver: NSViewRepresentable {
+    let onShortcut: (NinoOnboardingShortcut) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onShortcut: onShortcut) }
+
+    func makeNSView(context: Context) -> NSView {
+        context.coordinator.start()
+        return NSView(frame: .zero)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.onShortcut = onShortcut
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.stop()
+    }
+
+    final class Coordinator {
+        var onShortcut: (NinoOnboardingShortcut) -> Void
+        private var monitor: Any?
+
+        init(onShortcut: @escaping (NinoOnboardingShortcut) -> Void) {
+            self.onShortcut = onShortcut
+        }
+
+        func start() {
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
+                guard let shortcut = Self.shortcut(for: event) else { return event }
+                self?.onShortcut(shortcut)
+                return event
             }
         }
-        .background(AppTheme.Surface.control.opacity(0.45))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.Border.subtle, lineWidth: 1)
-        )
-    }
 
-    private func shortcutRow(_ row: Row) -> some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(LocalizedStringKey(row.title))
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppTheme.Text.primary)
-
-                Text(LocalizedStringKey(row.subtitle))
-                    .font(.system(size: 12))
-                    .foregroundColor(AppTheme.Text.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 12)
-
-            OnboardingShortcutSetupView(action: row.action) {}
+        func stop() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
+
+        private static func shortcut(for event: NSEvent) -> NinoOnboardingShortcut? {
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if flags.contains([.command, .option]) { return .commandOption }
+            switch event.keyCode {
+            case 61 where flags.contains(.option): return .rightOption
+            case 54 where flags.contains(.command): return .rightCommand
+            case 58 where flags.contains(.option): return .leftOption
+            default: return nil
+            }
+        }
     }
 }

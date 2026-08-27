@@ -1,13 +1,55 @@
+import AppKit
 import SwiftUI
+
+enum OnboardingMotion {
+    static var reduceMotion: Bool {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    static func duration(_ duration: Double) -> Double {
+        reduceMotion ? 0 : duration
+    }
+}
 
 struct OnboardingBackground: View {
     var body: some View {
-        VisualEffectView(
-            material: .sidebar,
-            blendingMode: .behindWindow
-        )
+        NinoPalette.ink.ignoresSafeArea()
+    }
+}
+
+struct OnboardingGoldBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: reduceMotion ? 40 : 1.0 / 30.0)) { timeline in
+            let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: 40) / 40
+            let drift = CGFloat(sin(phase * .pi * 2) * 42)
+
+            ZStack {
+                NinoPalette.ink
+                RadialGradient(
+                    colors: [NinoPalette.gold.opacity(0.72), NinoPalette.gold.opacity(0)],
+                    center: .center,
+                    startRadius: 20,
+                    endRadius: 430
+                )
+                .scaleEffect(1.25)
+                .offset(x: drift, y: -110)
+                .blur(radius: 75)
+                LinearGradient(
+                    colors: [NinoPalette.goldDim.opacity(0.38), NinoPalette.ink.opacity(0)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
         .ignoresSafeArea()
     }
+}
+
+extension AnyTransition {
+    static let ninoOnboardingStep = AnyTransition.opacity.combined(with: .offset(y: 8))
 }
 
 enum OnboardingLayout {
@@ -26,24 +68,24 @@ struct OnboardingHeroHeader: View {
         VStack(spacing: 16) {
             Image(systemName: systemImage)
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.gold2)
                 .frame(width: 56, height: 56)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(AppTheme.Surface.controlActive)
+                        .fill(NinoPalette.surface2)
                 )
 
             VStack(spacing: 8) {
                 Text(LocalizedStringKey(title))
                     .font(.system(size: 30, weight: .bold))
-                    .foregroundColor(AppTheme.Text.primary)
+                    .foregroundColor(NinoPalette.cream)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(LocalizedStringKey(subtitle))
                     .font(.system(size: 14))
-                    .foregroundColor(AppTheme.Text.muted)
+                    .foregroundColor(NinoPalette.creamDim)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -113,13 +155,13 @@ struct OnboardingBottomBar: View {
             Button(action: onLeading) {
                 Text(LocalizedStringKey(leadingTitle))
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(AppTheme.Action.secondaryForeground)
+                    .foregroundColor(NinoPalette.cream)
                     .frame(width: Metrics.controlButtonWidth, height: Metrics.buttonHeight)
-                    .background(AppMaterialCardBackground(cornerRadius: AppTheme.Radius.control))
+                    .background(NinoPalette.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
         } else {
-            AppTheme.Surface.clear
+            NinoPalette.ink.opacity(0)
                 .frame(width: Metrics.controlButtonWidth, height: Metrics.buttonHeight)
                 .accessibilityHidden(true)
         }
@@ -129,12 +171,12 @@ struct OnboardingBottomBar: View {
         Button(action: onPrimary) {
             Text(LocalizedStringKey(primaryTitle))
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(isPrimaryEnabled ? AppTheme.Action.primaryForeground : AppTheme.Action.disabledForeground)
+                .foregroundColor(NinoPalette.ink)
                 .padding(.horizontal, Metrics.primaryButtonHorizontalPadding)
                 .frame(minWidth: Metrics.controlButtonWidth, minHeight: Metrics.buttonHeight)
                 .background(
                     RoundedRectangle(cornerRadius: AppTheme.Radius.control, style: .continuous)
-                        .fill(isPrimaryEnabled ? AppTheme.Action.primaryFill : AppTheme.Action.disabledFill)
+                        .fill(isPrimaryEnabled ? NinoPalette.gold2 : NinoPalette.goldDim)
                 )
         }
         .buttonStyle(.plain)
@@ -249,7 +291,7 @@ private struct SegmentedProgressRing: View {
                 Circle()
                     .trim(from: segmentStart(index), to: segmentEnd(index))
                     .stroke(
-                        index < filledSegments ? AppTheme.Accent.primary : AppTheme.Surface.controlActive,
+                        index < filledSegments ? NinoPalette.gold : NinoPalette.surface3,
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -257,7 +299,7 @@ private struct SegmentedProgressRing: View {
 
             Text(progress, format: .percent.precision(.fractionLength(0)))
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.cream)
         }
         .frame(width: 46, height: 46)
     }
@@ -270,5 +312,31 @@ private struct SegmentedProgressRing: View {
     private func segmentEnd(_ index: Int) -> CGFloat {
         guard totalSegments > 0 else { return 0 }
         return CGFloat(Double(index + 1) / Double(totalSegments) - segmentGap / 2)
+    }
+}
+
+struct NinoPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(NinoPalette.ink)
+            .padding(.horizontal, 22)
+            .frame(height: 42)
+            .background(NinoPalette.gold2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .opacity(configuration.isPressed ? 0.78 : 1)
+    }
+}
+
+struct NinoChipButtonStyle: ButtonStyle {
+    let isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(isSelected ? NinoPalette.ink : NinoPalette.cream)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(isSelected ? NinoPalette.gold2 : NinoPalette.surface3, in: Capsule())
+            .opacity(configuration.isPressed ? 0.78 : 1)
     }
 }

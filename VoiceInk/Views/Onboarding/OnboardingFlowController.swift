@@ -8,8 +8,20 @@ final class OnboardingFlowController {
         self.coordinator = coordinator
     }
 
+    func goToIntentStep() {
+        coordinator.storedStage = OnboardingStage.intent.rawValue
+    }
+
+    func goBackToWelcomeStep() {
+        coordinator.storedStage = OnboardingStage.welcome.rawValue
+    }
+
     func goToPermissionsStep() {
         coordinator.storedStage = OnboardingStage.permissions.rawValue
+    }
+
+    func goBackToIntentStep() {
+        coordinator.storedStage = OnboardingStage.intent.rawValue
     }
 
     func goToMicrophoneStep() {
@@ -104,7 +116,7 @@ final class OnboardingFlowController {
     }
 
     func goToExperiencePracticePhase() {
-        withAnimation(.easeInOut(duration: 0.28)) {
+        withAnimation(.easeInOut(duration: OnboardingMotion.duration(0.28))) {
             coordinator.isExperienceInIntroPhase = false
         }
     }
@@ -112,7 +124,7 @@ final class OnboardingFlowController {
     func goToExperienceIntroPhase() {
         guard !coordinator.shouldSkipCurrentExperienceIntro else { return }
 
-        withAnimation(.easeInOut(duration: 0.28)) {
+        withAnimation(.easeInOut(duration: OnboardingMotion.duration(0.28))) {
             coordinator.isExperienceInIntroPhase = true
         }
     }
@@ -188,6 +200,12 @@ final class OnboardingFlowController {
         coordinator.storedStage = OnboardingStage.shortcuts.rawValue
     }
 
+    func goToAllSetStep(isTranscriptionSetupReady: Bool) {
+        guard coordinator.stage == .license,
+              coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady) else { return }
+        coordinator.storedStage = OnboardingStage.allSet.rawValue
+    }
+
     func advanceExperienceStep(
         isTranscriptionSetupReady: Bool,
         enhancementService: AIEnhancementService
@@ -212,11 +230,10 @@ final class OnboardingFlowController {
         isTranscriptionSetupReady: Bool,
         onComplete: () -> Void
     ) {
+        guard coordinator.stage == .license,
+              coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady) else { return }
         coordinator.licenseViewModel.startTrial()
-        completeOnboarding(
-            isTranscriptionSetupReady: isTranscriptionSetupReady,
-            onComplete: onComplete
-        )
+        onComplete()
     }
 
     func activateLicense() {
@@ -249,7 +266,8 @@ final class OnboardingFlowController {
             coordinator.stage == .contextAwareness ||
             coordinator.stage == .trust ||
             coordinator.stage == .shortcuts ||
-            coordinator.stage == .license) &&
+            coordinator.stage == .license ||
+            coordinator.stage == .allSet) &&
             !coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady) {
             goToFirstIncompleteSetupStep(isTranscriptionSetupReady: isTranscriptionSetupReady)
         }
@@ -317,7 +335,7 @@ final class OnboardingFlowController {
         isTranscriptionSetupReady: Bool,
         onComplete: () -> Void
     ) {
-        guard coordinator.stage == .license ||
+        guard coordinator.stage == .allSet ||
                 coordinator.isCurrentExperienceReady(isTranscriptionSetupReady: isTranscriptionSetupReady) else {
             return
         }

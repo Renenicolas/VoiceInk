@@ -32,11 +32,11 @@ struct OnboardingLicenseSetupCard: View {
                     .frame(height: 44)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(AppTheme.Surface.control.opacity(0.86))
+                            .fill(NinoPalette.surface2.opacity(0.86))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(AppTheme.Border.control.opacity(0.42), lineWidth: 1)
+                            .stroke(NinoPalette.border.opacity(0.42), lineWidth: 1)
                     )
                     .onSubmit {
                         if canActivateLicense {
@@ -107,12 +107,12 @@ struct OnboardingVerifiedLicenseCard: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(key, forType: .string)
 
-        withAnimation(.snappy(duration: 0.22)) {
+        withAnimation(.snappy(duration: OnboardingMotion.duration(0.22))) {
             didCopyLicenseKey = true
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
-            withAnimation(.snappy(duration: 0.22)) {
+            withAnimation(.snappy(duration: OnboardingMotion.duration(0.22))) {
                 didCopyLicenseKey = false
             }
         }
@@ -142,13 +142,13 @@ private struct OnboardingLicenseActionRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(LocalizedStringKey(title))
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(AppTheme.Text.primary)
+                        .foregroundColor(NinoPalette.cream)
                         .lineLimit(1)
                         .minimumScaleFactor(0.88)
 
                     Text(LocalizedStringKey(subtitle))
                         .font(.system(size: 11))
-                        .foregroundColor(AppTheme.Text.muted)
+                        .foregroundColor(NinoPalette.creamDim)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -156,11 +156,11 @@ private struct OnboardingLicenseActionRow: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(AppTheme.Text.disabled)
+                    .foregroundColor(NinoPalette.creamDim)
                     .frame(width: 24, height: 24)
                     .background(
                         Circle()
-                            .fill(AppTheme.Surface.subtle)
+                            .fill(NinoPalette.surface2)
                     )
             }
             .padding(.horizontal, 14)
@@ -177,19 +177,19 @@ private struct OnboardingLicenseActionRow: View {
     @ViewBuilder
     private var tileBackground: some View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(AppTheme.Surface.control.opacity(0.76))
+            .fill(NinoPalette.surface2.opacity(0.76))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(AppTheme.Border.subtle, lineWidth: 1)
+                    .stroke(NinoPalette.border, lineWidth: 1)
             )
     }
 
     private var iconBackground: Color {
-        AppTheme.Surface.controlActive.opacity(0.72)
+        NinoPalette.surface3.opacity(0.72)
     }
 
     private var iconForeground: Color {
-        AppTheme.Text.muted
+        NinoPalette.creamDim
     }
 }
 
@@ -214,16 +214,16 @@ private struct OnboardingLicensePrimaryButton: View {
                 Text(isLoading ? LocalizedStringKey("Activating") : title)
                     .font(.system(size: 13, weight: .semibold))
             }
-            .foregroundColor(isEnabled ? AppTheme.Text.primary : AppTheme.Text.disabled)
+            .foregroundColor(isEnabled ? NinoPalette.cream : NinoPalette.creamDim)
             .frame(maxWidth: .infinity)
             .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isEnabled ? AppTheme.Surface.controlActive.opacity(0.88) : AppTheme.Surface.control.opacity(0.64))
+                    .fill(isEnabled ? NinoPalette.surface3.opacity(0.88) : NinoPalette.surface2.opacity(0.64))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isEnabled ? AppTheme.Border.control.opacity(0.48) : AppTheme.Border.subtle, lineWidth: 1)
+                    .stroke(isEnabled ? NinoPalette.border.opacity(0.48) : NinoPalette.border, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -244,6 +244,6 @@ private struct OnboardingLicenseStatusMessage: View {
             Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                 .font(.system(size: 12, weight: .semibold))
         }
-        .foregroundColor(isSuccess ? AppTheme.Status.positive : AppTheme.Status.error)
+        .foregroundColor(isSuccess ? NinoPalette.gold2 : NinoPalette.gold)
     }
 }

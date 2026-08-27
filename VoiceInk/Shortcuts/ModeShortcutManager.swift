@@ -93,6 +93,10 @@ class ModeShortcutManager {
                         return
                     }
 
+                    NSLog("NINOKEY up mode=%@ pushToTalk=%@ modeId=%@",
+                          String(describing: self.effectiveMode),
+                          String(describing: self.shouldUsePushToTalk()),
+                          modeId.uuidString)
                     await self.shortcutModeHandler.handleKeyUp(
                         action: action,
                         eventTime: eventTime,

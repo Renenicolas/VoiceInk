@@ -52,6 +52,13 @@ final class OnboardingCoordinator: ObservableObject {
         }
     }
 
+    @Published var onboardingIntent: String {
+        didSet {
+            // TODO: Move this into the Nino brain when onboarding memories have a supported home.
+            defaults.set(onboardingIntent, forKey: OnboardingStorageKeys.intent)
+        }
+    }
+
     @Published var permissionStatuses: [OnboardingPermissionKind: OnboardingPermissionStatus] = [:]
     @Published var isSelectedTranscriptionProviderVerified = false
     @Published var isSelectedAPIProviderVerified = false
@@ -69,7 +76,7 @@ final class OnboardingCoordinator: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        self.storedStage = defaults.string(forKey: OnboardingStorageKeys.stage) ?? OnboardingStage.permissions.rawValue
+        self.storedStage = defaults.string(forKey: OnboardingStorageKeys.stage) ?? OnboardingStage.welcome.rawValue
         self.storedActivePermission = defaults.string(forKey: OnboardingStorageKeys.activePermission) ?? OnboardingPermissionKind.microphone.rawValue
         self.hasRequestedScreenRecording = defaults.bool(forKey: OnboardingStorageKeys.requestedScreenRecording)
         self.experienceStepIndex = defaults.integer(forKey: OnboardingStorageKeys.experienceIndex)
@@ -81,6 +88,7 @@ final class OnboardingCoordinator: ObservableObject {
             forKey: OnboardingStorageKeys.transcriptionProvider
         ) ?? ""
         self.hasSkippedAPISetup = defaults.bool(forKey: OnboardingStorageKeys.skippedAPISetup)
+        self.onboardingIntent = defaults.string(forKey: OnboardingStorageKeys.intent) ?? ""
     }
 
     deinit {
@@ -96,7 +104,7 @@ final class OnboardingCoordinator: ObservableObject {
             return .experience
         }
 
-        return storedStage == "parakeet" ? .model : .permissions
+        return storedStage == "parakeet" ? .model : .welcome
     }
 
     var activePermission: OnboardingPermissionKind {
@@ -133,11 +141,15 @@ final class OnboardingCoordinator: ObservableObject {
             return OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 3
         }
 
+        if stage == .allSet {
+            return totalStepCount
+        }
+
         return stage.stepNumber
     }
 
     var totalStepCount: Int {
-        OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 3
+        OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 4
     }
 
     var experienceStep: OnboardingExperienceStep {
@@ -420,6 +432,7 @@ final class OnboardingCoordinator: ObservableObject {
 }
 
 enum OnboardingStorageKeys {
+    static let intent = "NinoOnboardingIntent"
     static let stage = "onboardingStage"
     static let activePermission = "onboardingActivePermission"
     static let requestedScreenRecording = "onboardingRequestedScreenRecording"

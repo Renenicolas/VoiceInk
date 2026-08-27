@@ -47,7 +47,7 @@ struct OnboardingExperienceCard: View {
         panelShell(kicker: step.sampleLabel) {
             Text(LocalizedStringKey(step.sampleText))
                 .font(.system(size: 17, weight: .medium))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.cream)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -65,14 +65,14 @@ struct OnboardingExperienceCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: panelHeight)
-        .background(AppTheme.Surface.window.opacity(0.86))
+        .background(NinoPalette.surface.opacity(0.86))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(fieldBorderColor, lineWidth: 1)
         )
         .opacity(hasShortcut ? 1 : 0.5)
-        .animation(.easeInOut(duration: 0.18), value: hasShortcut)
+        .animation(.easeInOut(duration: OnboardingMotion.duration(0.18)), value: hasShortcut)
     }
 
     private var notesToolbar: some View {
@@ -81,31 +81,31 @@ struct OnboardingExperienceCard: View {
 
             Image(systemName: "note.text")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(AppTheme.Text.secondary)
+                .foregroundColor(NinoPalette.creamDim)
 
             Text("Notes")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.cream)
 
             Spacer(minLength: 0)
 
             Image(systemName: "square.and.pencil")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(AppTheme.Text.muted)
+                .foregroundColor(NinoPalette.creamDim)
         }
         .padding(.horizontal, 12)
         .frame(height: 32)
-        .background(AppTheme.Surface.control.opacity(0.48))
+        .background(NinoPalette.surface2.opacity(0.48))
     }
 
     private var trafficLights: some View {
         HStack(spacing: 5) {
             Circle()
-                .fill(AppTheme.Status.error.opacity(0.78))
+                .fill(NinoPalette.gold.opacity(0.78))
             Circle()
-                .fill(AppTheme.Status.warningStrong.opacity(0.78))
+                .fill(NinoPalette.gold.opacity(0.78))
             Circle()
-                .fill(AppTheme.Status.positive.opacity(0.78))
+                .fill(NinoPalette.gold2.opacity(0.78))
         }
         .frame(width: 42, height: 10)
     }
@@ -115,7 +115,7 @@ struct OnboardingExperienceCard: View {
             if text.isEmpty {
                 Text(LocalizedStringKey(step.fieldPlaceholder))
                     .font(.system(size: 13))
-                    .foregroundColor(AppTheme.Text.muted)
+                    .foregroundColor(NinoPalette.creamDim)
                     .padding(editorTextInset)
                     .allowsHitTesting(false)
             }
@@ -130,7 +130,7 @@ struct OnboardingExperienceCard: View {
     private var transformArrow: some View {
         Image(systemName: "arrow.right")
             .font(.system(size: 15, weight: .semibold))
-            .foregroundColor(AppTheme.Text.muted)
+            .foregroundColor(NinoPalette.creamDim)
             .frame(width: 46)
     }
 
@@ -138,7 +138,7 @@ struct OnboardingExperienceCard: View {
         panelShell(kicker: step.sampleLabel, height: 150) {
             Text(LocalizedStringKey(step.sampleText))
                 .font(.system(size: 20, weight: .medium))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.cream)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -156,7 +156,7 @@ struct OnboardingExperienceCard: View {
                 .font(.system(size: 11, weight: .semibold))
                 .textCase(.uppercase)
                 .tracking(1.0)
-                .foregroundColor(AppTheme.Text.muted)
+                .foregroundColor(NinoPalette.creamDim)
 
             content()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -164,7 +164,7 @@ struct OnboardingExperienceCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(height: height ?? panelHeight)
-        .background(AppTheme.Surface.control.opacity(0.45))
+        .background(NinoPalette.surface2.opacity(0.45))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
@@ -190,7 +190,7 @@ struct OnboardingExperienceCard: View {
     }
 
     private var fieldBorderColor: Color {
-        isFieldFocused ? AppTheme.Accent.border : AppTheme.Border.subtle
+        isFieldFocused ? NinoPalette.gold : NinoPalette.border
     }
 }
 
@@ -224,7 +224,7 @@ private struct OnboardingExperienceInstruction: View {
     private func instructionText(_ value: String) -> some View {
         Text(LocalizedStringKey(value))
             .font(.system(size: 15, weight: .medium))
-            .foregroundColor(AppTheme.Text.primary)
+            .foregroundColor(NinoPalette.cream)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

@@ -13,7 +13,7 @@ struct OnboardingExperienceIntroCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(LocalizedStringKey(introText))
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.Text.primary)
+                    .foregroundColor(NinoPalette.cream)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -32,7 +32,10 @@ struct OnboardingExperienceIntroCard: View {
         .offset(y: isVisible ? 0 : 10)
         .onAppear {
             isVisible = false
-            withAnimation(.easeInOut(duration: 0.3).delay(0.08)) {
+            withAnimation(
+                .easeInOut(duration: OnboardingMotion.duration(0.3))
+                    .delay(OnboardingMotion.duration(0.08))
+            ) {
                 isVisible = true
             }
         }

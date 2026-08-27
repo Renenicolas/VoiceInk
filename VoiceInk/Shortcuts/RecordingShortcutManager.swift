@@ -539,6 +539,10 @@ final class RecordingShortcutModeHandler {
             scheduleSilenceAutoCancel()
 
         case .pushToTalk:
+            NSLog("NINOKEY pushToTalk-branch visible=%@ canHandle=%@ state=%@",
+                  String(describing: isRecorderVisible()),
+                  String(describing: canHandleShortcutAction()),
+                  String(describing: recordingState()))
             if isRecorderVisible() {
                 guard canHandleShortcutAction() else { return }
                 await toggleRecorderPanel(modeId)

@@ -7,6 +7,7 @@ struct OnboardingView: View {
     @EnvironmentObject var transcriptionModelManager: TranscriptionModelManager
     @EnvironmentObject var aiService: AIService
     @EnvironmentObject var enhancementService: AIEnhancementService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var coordinator = OnboardingCoordinator()
     @State private var isShowingSkipOnboardingConfirmation = false
 
@@ -25,6 +26,14 @@ struct OnboardingView: View {
 
             Group {
                 switch coordinator.stage {
+                case .welcome:
+                    OnboardingWelcomeScreen(onContinue: coordinator.flow.goToIntentStep)
+                case .intent:
+                    OnboardingIntentScreen(
+                        intent: $coordinator.onboardingIntent,
+                        onBack: coordinator.flow.goBackToWelcomeStep,
+                        onContinue: coordinator.flow.goToPermissionsStep
+                    )
                 case .permissions:
                     OnboardingPermissionsScreen(
                         contentMaxWidth: contentMaxWidth,
@@ -43,14 +52,12 @@ struct OnboardingView: View {
                         onRecheck: coordinator.permissions.refreshPermissionStatuses,
                         onContinue: coordinator.flow.goToMicrophoneStep
                     )
-                        .transition(.opacity)
                 case .microphone:
                     OnboardingMicrophoneScreen(
                         contentMaxWidth: contentMaxWidth,
                         onBack: coordinator.flow.goToPermissionsStep,
                         onContinue: coordinator.flow.goToModelStep
                     )
-                        .transition(.opacity)
                 case .model:
                     OnboardingModelScreen(
                         contentMaxWidth: contentMaxWidth,
@@ -82,7 +89,6 @@ struct OnboardingView: View {
                             )
                         }
                     )
-                        .transition(.opacity)
                 case .api:
                     OnboardingAPIScreen(
                         aiService: aiService,
@@ -110,7 +116,6 @@ struct OnboardingView: View {
                             )
                         }
                     )
-                        .transition(.opacity)
                 case .experience:
                     OnboardingExperienceScreen(
                         step: coordinator.experienceStep,
@@ -141,7 +146,6 @@ struct OnboardingView: View {
                         },
                         onAppear: coordinator.flow.activateExperienceModeForDemo
                     )
-                        .transition(.opacity)
                 case .contextAwareness:
                     OnboardingContextAwarenessScreen(
                         contentMaxWidth: contentMaxWidth,
@@ -156,7 +160,6 @@ struct OnboardingView: View {
                             )
                         }
                     )
-                        .transition(.opacity)
                 case .trust:
                     OnboardingTrustScreen(
                         contentMaxWidth: contentMaxWidth,
@@ -172,7 +175,6 @@ struct OnboardingView: View {
                             )
                         }
                     )
-                        .transition(.opacity)
                 case .shortcuts:
                     OnboardingShortcutsScreen(
                         contentMaxWidth: contentMaxWidth,
@@ -187,7 +189,6 @@ struct OnboardingView: View {
                             )
                         }
                     )
-                        .transition(.opacity)
                 case .license:
                     OnboardingLicenseScreen(
                         licenseViewModel: coordinator.licenseViewModel,
@@ -203,21 +204,30 @@ struct OnboardingView: View {
                             coordinator.flow.startLicenseTrial(
                                 isTranscriptionSetupReady: isTranscriptionSetupReady
                             ) {
-                                hasCompletedOnboardingV2 = true
+                                coordinator.flow.goToAllSetStep(
+                                    isTranscriptionSetupReady: isTranscriptionSetupReady
+                                )
                             }
                         },
                         onActivate: coordinator.flow.activateLicense,
                         onFinish: {
-                            coordinator.flow.completeOnboarding(
+                            coordinator.flow.goToAllSetStep(
                                 isTranscriptionSetupReady: isTranscriptionSetupReady
-                            ) {
-                                hasCompletedOnboardingV2 = true
-                            }
+                            )
                         }
                     )
-                        .transition(.opacity)
+                case .allSet:
+                    OnboardingAllSetScreen {
+                        coordinator.flow.completeOnboarding(
+                            isTranscriptionSetupReady: isTranscriptionSetupReady
+                        ) {
+                            hasCompletedOnboardingV2 = true
+                        }
+                    }
                 }
             }
+            .transition(.ninoOnboardingStep)
+            .id(coordinator.stage)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             OnboardingProgressBadge(
@@ -237,8 +247,8 @@ struct OnboardingView: View {
             }
         }
         .frame(minWidth: 820, minHeight: 680)
-        .animation(.easeInOut(duration: 0.22), value: coordinator.stage)
-        .animation(.easeInOut(duration: 0.18), value: shouldShowSkipOnboardingButton)
+        .animation(.easeInOut(duration: reduceMotion ? 0 : 0.24), value: coordinator.stage)
+        .animation(.easeInOut(duration: reduceMotion ? 0 : 0.18), value: shouldShowSkipOnboardingButton)
         .alert("Skip onboarding?", isPresented: $isShowingSkipOnboardingConfirmation) {
             Button("Continue", role: .cancel) { }
             Button("Skip Onboarding", role: .destructive) {
@@ -278,6 +288,9 @@ struct OnboardingView: View {
                 enhancementService: enhancementService
             )
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            coordinator.permissions.refreshPermissionStatuses()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .aiProviderKeyChanged)) { _ in
             coordinator.flow.refreshAPIVerification()
             coordinator.flow.refreshTranscriptionSetupVerification()
@@ -300,7 +313,9 @@ struct OnboardingView: View {
     }
 
     private var shouldShowSkipOnboardingButton: Bool {
-        coordinator.requiredPermissionsGranted && coordinator.stage != .permissions
+        coordinator.requiredPermissionsGranted &&
+            coordinator.stage != .permissions &&
+            coordinator.stage != .allSet
     }
 
     private var skipOnboardingButton: some View {
@@ -309,12 +324,12 @@ struct OnboardingView: View {
         } label: {
             Text("Skip")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(AppTheme.Text.secondary)
+                .foregroundColor(NinoPalette.creamDim)
                 .padding(.horizontal, 9)
                 .frame(height: 24)
                 .background(
                     Capsule()
-                        .fill(AppTheme.Surface.control.opacity(0.55))
+                        .fill(NinoPalette.surface3)
                 )
         }
         .buttonStyle(.plain)

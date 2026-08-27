@@ -55,6 +55,12 @@ struct OnboardingPermissionsScreen: View {
                     onQuit: onQuit
                 )
             }
+
+            Text("Microphone is required. Accessibility and Screen Recording are optional and can be enabled later.")
+                .font(.system(size: 11))
+                .foregroundStyle(NinoPalette.creamDim)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
         }
     }
 }

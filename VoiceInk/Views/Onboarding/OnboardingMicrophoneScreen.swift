@@ -60,7 +60,7 @@ struct OnboardingMicrophoneScreen: View {
         HStack {
             Text("Available Microphones")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(AppTheme.Text.secondary)
+                .foregroundColor(NinoPalette.creamDim)
 
             Spacer()
 
@@ -78,16 +78,16 @@ struct OnboardingMicrophoneScreen: View {
             HStack(spacing: 14) {
                 Image(systemName: isSelected ? "checkmark" : "mic")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(isSelected ? AppTheme.Text.primary : AppTheme.Text.muted)
+                    .foregroundColor(isSelected ? NinoPalette.cream : NinoPalette.creamDim)
                     .frame(width: 30, height: 30)
                     .background(
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(isSelected ? AppTheme.Selection.fill : AppTheme.Surface.controlActive)
+                            .fill(isSelected ? NinoPalette.gold : NinoPalette.surface3)
                     )
 
                 Text(device.name)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppTheme.Text.primary)
+                    .foregroundColor(NinoPalette.cream)
                     .lineLimit(1)
 
                 Spacer(minLength: 12)
@@ -109,16 +109,16 @@ struct OnboardingMicrophoneScreen: View {
         VStack(spacing: 14) {
             Image(systemName: "mic.slash")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(AppTheme.Text.secondary)
+                .foregroundColor(NinoPalette.creamDim)
 
             VStack(spacing: 4) {
                 Text("No microphones found")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppTheme.Text.primary)
+                    .foregroundColor(NinoPalette.cream)
 
                 Text("Connect a microphone or allow microphone access, then refresh.")
                     .font(.system(size: 13))
-                    .foregroundColor(AppTheme.Text.secondary)
+                    .foregroundColor(NinoPalette.creamDim)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -142,7 +142,7 @@ struct OnboardingMicrophoneScreen: View {
                     .font(.system(size: 12, weight: .semibold))
                     .rotationEffect(.degrees(refreshIconRotation))
             }
-            .foregroundColor(AppTheme.Text.secondary)
+            .foregroundColor(NinoPalette.creamDim)
         }
         .buttonStyle(.plain)
         .help("Refresh Microphones")
@@ -158,7 +158,7 @@ struct OnboardingMicrophoneScreen: View {
     }
 
     private func refreshMicrophones(selectingIfNeeded: Bool) {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(.easeInOut(duration: OnboardingMotion.duration(0.2))) {
             refreshIconRotation += 360
         }
 

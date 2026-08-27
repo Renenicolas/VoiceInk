@@ -49,16 +49,16 @@ private struct TrustHeader: View {
         VStack(spacing: 16) {
             Image(systemName: "lock.shield")
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.cream)
                 .frame(width: 56, height: 56)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(AppTheme.Surface.controlActive)
+                        .fill(NinoPalette.surface3)
                 )
 
             Text("Nino Voice is private by default")
                 .font(.system(size: 32, weight: .bold))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.cream)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -76,12 +76,12 @@ private struct TrustBody: View {
             VStack(spacing: 10) {
                 Text("Your data never has to leave your device.")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(AppTheme.Text.primary)
+                    .foregroundColor(NinoPalette.cream)
                     .multilineTextAlignment(.center)
 
                 Text("Nino Voice is also open source, so you can inspect every single line of code.")
                     .font(.system(size: 13))
-                    .foregroundColor(AppTheme.Text.secondary)
+                    .foregroundColor(NinoPalette.creamDim)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: 610)
@@ -94,7 +94,7 @@ private struct TrustMapView: View {
     var body: some View {
         ZStack {
             TrustConnectorLines()
-                .stroke(AppTheme.Border.control.opacity(0.58), style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
+                .stroke(NinoPalette.border.opacity(0.58), style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
                 .frame(width: 500, height: 210)
                 .offset(y: 22)
 
@@ -155,22 +155,22 @@ private struct TrustPill: View {
         HStack(spacing: 8) {
             Image(systemName: systemImage)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(AppTheme.Text.secondary)
+                .foregroundColor(NinoPalette.creamDim)
 
             Text(LocalizedStringKey(title))
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(AppTheme.Text.primary)
+                .foregroundColor(NinoPalette.cream)
                 .lineLimit(1)
         }
         .padding(.horizontal, 14)
         .frame(height: 42)
         .background(
             Capsule()
-                .fill(AppTheme.Surface.control.opacity(0.84))
+                .fill(NinoPalette.surface2.opacity(0.84))
         )
         .overlay(
             Capsule()
-                .stroke(AppTheme.Border.subtle, lineWidth: 1)
+                .stroke(NinoPalette.border, lineWidth: 1)
         )
     }
 }
@@ -183,8 +183,8 @@ private struct TrustShield: View {
                 .foregroundStyle(
                     LinearGradient(
                         colors: [
-                            AppTheme.Surface.control,
-                            AppTheme.Surface.controlActive
+                            NinoPalette.surface2,
+                            NinoPalette.surface3
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -193,7 +193,7 @@ private struct TrustShield: View {
                 .overlay(
                     Image(systemName: "shield")
                         .font(.system(size: 96, weight: .regular))
-                        .foregroundColor(AppTheme.Border.control)
+                        .foregroundColor(NinoPalette.border)
                 )
 
             Image(nsImage: NSApplication.shared.applicationIconImage)

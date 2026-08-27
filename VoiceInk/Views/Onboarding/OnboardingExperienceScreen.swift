@@ -26,7 +26,7 @@ struct OnboardingExperienceScreen: View {
                     .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: isInIntroPhase)
+        .animation(.easeInOut(duration: OnboardingMotion.duration(0.3)), value: isInIntroPhase)
         .onAppear(perform: onAppear)
     }
 

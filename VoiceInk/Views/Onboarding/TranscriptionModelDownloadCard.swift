@@ -28,11 +28,11 @@ struct TranscriptionModelDownloadCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(model.displayName)
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(AppTheme.Text.primary)
+                        .foregroundColor(NinoPalette.cream)
 
                     Text("Fast multilingual transcription that runs locally on Mac.")
                         .font(.system(size: 12))
-                        .foregroundColor(AppTheme.Text.secondary)
+                        .foregroundColor(NinoPalette.creamDim)
                         .lineLimit(1)
                         .minimumScaleFactor(0.92)
                 }
@@ -78,19 +78,19 @@ struct TranscriptionModelDownloadCard: View {
     private func metadataPill(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .medium))
-            .foregroundColor(AppTheme.Text.secondary)
+            .foregroundColor(NinoPalette.creamDim)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
-            .background(Capsule().fill(AppTheme.Surface.subtle))
+            .background(Capsule().fill(NinoPalette.surface2))
     }
 
     private func localizedMetadataPill(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .medium))
-            .foregroundColor(AppTheme.Text.secondary)
+            .foregroundColor(NinoPalette.creamDim)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
-            .background(Capsule().fill(AppTheme.Surface.subtle))
+            .background(Capsule().fill(NinoPalette.surface2))
     }
 
     private func progressPanel(_ status: FluidAudioDownloadStatus) -> some View {
@@ -111,13 +111,13 @@ struct TranscriptionModelDownloadCard: View {
                     .fontDesign(.monospaced)
             }
             .font(.system(size: 11, weight: .medium))
-            .foregroundColor(AppTheme.Text.secondary)
+            .foregroundColor(NinoPalette.creamDim)
 
             ProgressView(value: status.fractionCompleted)
                 .progressViewStyle(.linear)
-                .tint(AppTheme.Accent.primary)
+                .tint(NinoPalette.gold)
         }
-        .animation(.smooth, value: status.fractionCompleted)
+        .animation(.smooth(duration: OnboardingMotion.duration(0.35)), value: status.fractionCompleted)
     }
 
     private var downloadButton: some View {
@@ -131,12 +131,12 @@ struct TranscriptionModelDownloadCard: View {
                 Text(downloadButtonTitle)
             }
             .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(canDownload ? AppTheme.Action.primaryForeground : AppTheme.Action.disabledForeground)
+            .foregroundColor(canDownload ? NinoPalette.ink : NinoPalette.ink)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(canDownload ? AppTheme.Action.primaryFill : AppTheme.Action.disabledFill)
+                    .fill(canDownload ? NinoPalette.gold2 : NinoPalette.goldDim)
             )
         }
         .buttonStyle(.plain)
@@ -146,10 +146,10 @@ struct TranscriptionModelDownloadCard: View {
     private var statusBadge: some View {
         Text("Downloaded")
             .font(.system(size: 11, weight: .semibold))
-            .foregroundColor(AppTheme.Text.secondary)
+            .foregroundColor(NinoPalette.creamDim)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
-            .background(Capsule().fill(AppTheme.Surface.controlActive))
+            .background(Capsule().fill(NinoPalette.surface3))
     }
 
     private var downloadButtonTitle: LocalizedStringKey {

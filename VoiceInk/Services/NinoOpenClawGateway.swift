@@ -12,11 +12,17 @@ import Foundation
 /// It was verified end to end before this file was written, so this is the
 /// contract as observed, not as documented.
 ///
-/// The agent runs on the always-on mini, so the call goes over SSH. The message
-/// is written to the remote process's STDIN rather than interpolated into the
-/// remote command line — `ssh host "cmd"` hands its argument to a remote shell,
-/// so user text in that string would be shell-injected. Nothing the user says
-/// ever becomes part of a command.
+/// It runs the agent LOCALLY (`--local`), on this Mac, on purpose. Routing it to
+/// the always-on mini worked and answered questions, but the hands were on the
+/// wrong machine: "read my screen" meant the mini's screen and "open that app"
+/// meant the mini's apps. Verified locally before this change — asked the local
+/// agent to run `sw_vers -productVersion` and it returned this Mac's real OS
+/// version, so `tools.exec` genuinely reaches the user's machine. Running local
+/// is also markedly faster, with no SSH round trip.
+///
+/// The message is passed on STDIN via `--message-file /dev/stdin`, never
+/// interpolated into a command string, so nothing the user says can be parsed as
+/// a command.
 ///
 /// Requests still pass through the agent, so guard.ts (ask/act/spend, the scoped
 /// brain fence, the spend approval that times out to deny) applies exactly as it
@@ -38,14 +44,39 @@ enum NinoOpenClawGateway {
         }
     }
 
-    /// Host running the agent. Overridable for a different machine.
-    static var host: String {
-        UserDefaults.standard.string(forKey: "NinoOpenClawHost") ?? "reno-mini"
+    /// Set a hostname to run the agent on that machine over SSH instead of here.
+    /// Empty (the default) means local, which is what gives Nino hands on THIS Mac.
+    static var remoteHost: String? {
+        let host = UserDefaults.standard.string(forKey: "NinoOpenClawHost") ?? ""
+        return host.isEmpty ? nil : host
     }
 
     /// Agent id. `main` is the default agent ("⚡ Nino").
     static var agentId: String {
         UserDefaults.standard.string(forKey: "NinoOpenClawAgent") ?? "main"
+    }
+
+    /// Absolute path to the `openclaw` binary.
+    ///
+    /// Resolving it beats trusting PATH: a GUI app does not inherit a login
+    /// shell's PATH, and `openclaw` installs into `~/.npm-global/bin`, which is
+    /// on Rene's interactive PATH and not on the app's — the first live attempt
+    /// failed with `zsh:1: command not found: openclaw` for exactly that reason.
+    /// A client's machine may put it somewhere else again, so check the usual
+    /// homes and let a UserDefaults override win.
+    static var executablePath: String? {
+        if let override = UserDefaults.standard.string(forKey: "NinoOpenClawPath"),
+           FileManager.default.isExecutableFile(atPath: override) {
+            return override
+        }
+        let home = NSHomeDirectory()
+        let candidates = [
+            "\(home)/.npm-global/bin/openclaw",
+            "/opt/homebrew/bin/openclaw",
+            "/usr/local/bin/openclaw",
+            "\(home)/.local/bin/openclaw",
+        ]
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
     static var timeoutSeconds: Double {
@@ -72,13 +103,15 @@ enum NinoOpenClawGateway {
         if let status = root["status"] as? String, status != "ok" {
             throw GatewayError.failed(status)
         }
-        let result = root["result"] as? [String: Any]
-        if let meta = result?["meta"] as? [String: Any],
+        // Two shapes, both seen live: the gateway wraps its answer in `result`
+        // and adds `status`; `--local` returns the inner object directly.
+        let result = (root["result"] as? [String: Any]) ?? root
+        if let meta = result["meta"] as? [String: Any],
            let visible = meta["finalAssistantVisibleText"] as? String,
            !visible.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return visible
         }
-        if let payloads = result?["payloads"] as? [[String: Any]],
+        if let payloads = result["payloads"] as? [[String: Any]],
            let text = payloads.first?["text"] as? String,
            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return text
@@ -89,16 +122,33 @@ enum NinoOpenClawGateway {
     private static func runAgent(message: String) async throws -> Data {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
+                guard let openclaw = executablePath else {
+                    continuation.resume(throwing: GatewayError.failed("openclaw isn't installed where Nino can find it"))
+                    return
+                }
+
                 let process = Process()
-                process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
-                // The remote command is a fixed string. The user's text goes in on
-                // stdin via --message-file /dev/stdin, never into this array.
-                process.arguments = [
-                    "-o", "BatchMode=yes",
-                    "-o", "ConnectTimeout=8",
-                    host,
-                    "openclaw agent --agent \(agentId) --message-file /dev/stdin --json",
-                ]
+                if let remote = remoteHost {
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+                    // The remote command is a FIXED string. The user's text goes in
+                    // on stdin, never into this array — `ssh host "cmd"` hands its
+                    // argument to a remote shell.
+                    process.arguments = [
+                        "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
+                        remote,
+                        "openclaw agent --agent \(agentId) --message-file /dev/stdin --json",
+                    ]
+                } else {
+                    // Run the binary directly — no shell, so the arguments below
+                    // are exactly the arguments, and nothing can be re-parsed.
+                    process.executableURL = URL(fileURLWithPath: openclaw)
+                    process.arguments = [
+                        "agent", "--local",
+                        "--agent", agentId,
+                        "--message-file", "/dev/stdin",
+                        "--json",
+                    ]
+                }
 
                 var environment = ProcessInfo.processInfo.environment
                 environment["PATH"] = ShellCommandEnvironment.preferredPATH(fallback: environment["PATH"])
