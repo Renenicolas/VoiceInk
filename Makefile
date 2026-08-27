@@ -120,12 +120,22 @@ help:
 # stop, dictation stops pasting. Signing with one stable certificate keeps the
 # identity constant, so the grants survive rebuilds and only have to be given
 # once. Use this target for anything that gets installed and actually used.
-NINO_SIGN_IDENTITY ?= Nino Voice Local Signing
+# A certificate WE created, in a keychain WE own, with a password stored right
+# here. The old "Nino Voice Local Signing" identity lived in the login keychain
+# and its private key would not release to codesign — the login keychain password
+# had drifted from the account password and nobody had it. This one needs no
+# password anybody has to remember.
+#
+# Recreate on a new Mac with: make signing-cert
+NINO_SIGN_KEYCHAIN ?= nino-signing.keychain
+NINO_SIGN_PASSWORD ?= ninosigning
+NINO_SIGN_IDENTITY ?= Nino Code Signing
 
 nino: check setup
 	@echo "Building Nino Voice signed with '$(NINO_SIGN_IDENTITY)'..."
-	@security find-identity -v -p codesigning | grep -q "$(NINO_SIGN_IDENTITY)" || \
-		{ echo "Missing signing identity '$(NINO_SIGN_IDENTITY)' in the login keychain."; exit 1; }
+	@security find-identity -v -p codesigning $(NINO_SIGN_KEYCHAIN) | grep -q "$(NINO_SIGN_IDENTITY)" || \
+		{ echo "No '$(NINO_SIGN_IDENTITY)' identity. Run: make signing-cert"; exit 1; }
+	@security unlock-keychain -p $(NINO_SIGN_PASSWORD) $(NINO_SIGN_KEYCHAIN)
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
 		-xcconfig LocalBuild.xcconfig \
@@ -145,3 +155,36 @@ nino: check setup
 		echo "Signed build at ~/Downloads/VoiceInk.app"; \
 		codesign -dvvv "$$HOME/Downloads/VoiceInk.app" 2>&1 | grep -E "Authority|CDHash=" | head -2; \
 	fi
+
+# Create the signing certificate and its keychain from scratch. Idempotent-ish:
+# it deletes and recreates, so run it once per machine.
+#
+# WHY THIS EXISTS: `make local` signs ad-hoc, which mints a NEW code-signing
+# identity on every single build. macOS keys Accessibility and Microphone grants
+# to that identity, so every ad-hoc rebuild silently revokes both and the app
+# looks dead — hotkeys stop with nothing in any log. That cost a whole day.
+# A stable certificate means the grants are given once and survive every rebuild.
+signing-cert:
+	@set -e; \
+	W=$$(mktemp -d); \
+	printf '[ req ]\ndistinguished_name = dn\nx509_extensions = v3\nprompt = no\n[ dn ]\nCN = $(NINO_SIGN_IDENTITY)\nO = Nino\n[ v3 ]\nbasicConstraints = critical,CA:false\nkeyUsage = critical,digitalSignature\nextendedKeyUsage = critical,codeSigning\n' > $$W/openssl.cnf; \
+	openssl req -x509 -newkey rsa:2048 -keyout $$W/key.pem -out $$W/cert.pem -days 3650 -nodes -config $$W/openssl.cnf 2>/dev/null; \
+	openssl pkcs12 -export -inkey $$W/key.pem -in $$W/cert.pem -out $$W/nino.p12 -name "$(NINO_SIGN_IDENTITY)" \
+		-certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1 -passout pass:$(NINO_SIGN_PASSWORD); \
+	security delete-keychain $(NINO_SIGN_KEYCHAIN) 2>/dev/null || true; \
+	security create-keychain -p $(NINO_SIGN_PASSWORD) $(NINO_SIGN_KEYCHAIN); \
+	security set-keychain-settings -lut 100000 $(NINO_SIGN_KEYCHAIN); \
+	security unlock-keychain -p $(NINO_SIGN_PASSWORD) $(NINO_SIGN_KEYCHAIN); \
+	security import $$W/nino.p12 -k $(NINO_SIGN_KEYCHAIN) -P $(NINO_SIGN_PASSWORD) -T /usr/bin/codesign -T /usr/bin/security >/dev/null; \
+	security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k $(NINO_SIGN_PASSWORD) $(NINO_SIGN_KEYCHAIN) >/dev/null 2>&1; \
+	security add-trusted-cert -r trustRoot -k "$$HOME/Library/Keychains/$(NINO_SIGN_KEYCHAIN)-db" $$W/cert.pem; \
+	security list-keychains -d user -s login.keychain-db $(NINO_SIGN_KEYCHAIN); \
+	rm -rf $$W; \
+	security find-identity -v -p codesigning $(NINO_SIGN_KEYCHAIN)
+
+# Sign an already-built app with the stable certificate.
+sign:
+	@security unlock-keychain -p $(NINO_SIGN_PASSWORD) $(NINO_SIGN_KEYCHAIN)
+	codesign --force --deep --keychain $(NINO_SIGN_KEYCHAIN) --sign "$(NINO_SIGN_IDENTITY)" \
+		--entitlements "$(CURDIR)/VoiceInk/VoiceInk.local.entitlements" "$$HOME/Downloads/VoiceInk.app"
+	codesign -dvv "$$HOME/Downloads/VoiceInk.app" 2>&1 | grep -E "Authority|CDHash="

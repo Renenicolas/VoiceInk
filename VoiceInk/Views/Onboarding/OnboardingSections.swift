@@ -21,13 +21,16 @@ struct OnboardingBackground: View {
                 NinoPalette.ink
             } else {
                 OnboardingVisualEffectView()
-                NinoPalette.ink.opacity(0.82)
+                // 0.82 here read as solid black and hid both the desktop and the
+                // aura behind it. The reference is closer to half — you can see
+                // what is behind, it is just darkened and blurred.
+                NinoPalette.ink.opacity(OnboardingBackgroundMetrics.scrimOpacity)
             }
 
             OnboardingAura(reduceMotion: reduceMotion)
 
             RadialGradient(
-                colors: [.clear, NinoPalette.ink.opacity(0.54)],
+                colors: [.clear, NinoPalette.ink.opacity(0.34)],
                 center: .center,
                 startRadius: 180,
                 endRadius: 980
@@ -47,6 +50,12 @@ private struct OnboardingVisualEffectView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) { }
+}
+
+/// Named so the "is it actually see-through" rule can be asserted in a test
+/// rather than re-discovered by trapping someone behind an opaque screen.
+enum OnboardingBackgroundMetrics {
+    static let scrimOpacity: Double = 0.46
 }
 
 private struct OnboardingAura: View {
@@ -145,6 +154,25 @@ enum OnboardingLayout {
     static let horizontalPadding: CGFloat = 48
     static let headerTopPadding: CGFloat = 52
     static let bottomPadding: CGFloat = 28
+
+    /// The window covers `screen.frame` so the blur runs edge to edge, which puts
+    /// the bottom of the view underneath the Dock. The Continue button lives
+    /// there, so without this inset the flow renders with no visible way forward
+    /// — it trapped Rene on the permissions screen. Content stays inside
+    /// `visibleFrame`; only the glass extends past it.
+    static var safeAreaInsets: EdgeInsets {
+        guard let screen = NSScreen.main else {
+            return EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
+        }
+        let frame = screen.frame
+        let visible = screen.visibleFrame
+        return EdgeInsets(
+            top: max(0, frame.maxY - visible.maxY),
+            leading: max(0, visible.minX - frame.minX),
+            bottom: max(0, visible.minY - frame.minY),
+            trailing: max(0, frame.maxX - visible.maxX)
+        )
+    }
 }
 
 struct OnboardingHeroHeader: View {
@@ -345,6 +373,7 @@ struct OnboardingStepScreen<Content: View, BottomBar: View>: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, OnboardingLayout.horizontalPadding)
+            .padding(OnboardingLayout.safeAreaInsets)
         } else {
             ZStack {
                 content
@@ -361,6 +390,7 @@ struct OnboardingStepScreen<Content: View, BottomBar: View>: View {
                 .padding(.bottom, OnboardingLayout.bottomPadding)
             }
             .padding(.horizontal, OnboardingLayout.horizontalPadding)
+            .padding(OnboardingLayout.safeAreaInsets)
         }
     }
 }

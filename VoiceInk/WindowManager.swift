@@ -66,7 +66,11 @@ class WindowManager: NSObject {
         window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.fullScreenPrimary]
-        window.level = .floating
+        // .normal, not .floating. At .floating this window sits above System
+        // Settings, so the "Allow" buttons open a panel the user cannot see or
+        // click — Rene hit exactly that and could not grant Accessibility.
+        // Lemon's onboarding lets other windows come forward; so does this.
+        window.level = .normal
         window.minSize = .zero
         window.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
 

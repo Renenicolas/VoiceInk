@@ -249,6 +249,15 @@ struct OnboardingView: View {
             }
         }
         .ignoresSafeArea()
+        .background(
+            // Escape opens the same confirmation the Skip button does. A
+            // full-screen window needs a keyboard exit that does not depend on
+            // any button being laid out correctly.
+            Button("") { isShowingSkipOnboardingConfirmation = true }
+                .keyboardShortcut(.escape, modifiers: [])
+                .opacity(0)
+                .accessibilityHidden(true)
+        )
         .animation(.easeInOut(duration: reduceMotion ? 0 : 0.24), value: coordinator.stage)
         .animation(.easeInOut(duration: reduceMotion ? 0 : 0.18), value: shouldShowSkipOnboardingButton)
         .alert("Skip onboarding?", isPresented: $isShowingSkipOnboardingConfirmation) {
@@ -317,11 +326,16 @@ struct OnboardingView: View {
         }
     }
 
-    private var shouldShowSkipOnboardingButton: Bool {
-        coordinator.requiredPermissionsGranted &&
-            coordinator.stage != .permissions &&
-            coordinator.stage != .allSet
-    }
+    /// Always available, on every stage.
+    ///
+    /// This used to require `requiredPermissionsGranted` AND hide itself on the
+    /// permissions stage — so on the one screen where a person is most likely to
+    /// be stuck, the only way out was hidden. Combined with a full-screen window
+    /// whose Continue button sat under the Dock, it trapped Rene with no visible
+    /// exit and no way to quit. A first-run flow must never be a room with no
+    /// door: skipping is confirmed, warned about, and recoverable, whereas being
+    /// trapped is not. Permissions are re-checked at runtime anyway.
+    private var shouldShowSkipOnboardingButton: Bool { true }
 
     private var skipOnboardingButton: some View {
         Button {
