@@ -98,8 +98,8 @@ struct RecorderRecordButton: View {
         case .recording:
             return StateColors(
                 surface: NinoPalette.surface3,
-                border: NinoPalette.live,
-                mark: NinoPalette.live
+                border: NinoPalette.gold2,
+                mark: NinoPalette.gold
             )
         case .processing:
             return StateColors(
@@ -355,7 +355,7 @@ struct RecorderStatusDisplay: View {
             } else if currentState == .transcribing {
                 ProcessingStatusDisplay(mode: .transcribing, color: NinoPalette.gold2).transition(.opacity)
             } else if currentState == .recording {
-                AudioVisualizer(audioMeter: audioMeter, color: NinoPalette.live, isActive: true)
+                AudioVisualizer(audioMeter: audioMeter, color: NinoPalette.gold, isActive: true)
                     .scaleEffect(y: menuBarHeight != nil ? min(1.0, (menuBarHeight! - 8) / 25) : 1.0, anchor: .center)
                     .transition(.opacity)
             } else {
@@ -375,7 +375,6 @@ struct AssistantPanelView: View {
     let liveFollowUpText: String
     let onSend: (String) -> Void
 
-    @State private var draftMessage = ""
     @FocusState private var isFollowUpFieldFocused: Bool
 
     private let horizontalPadding: CGFloat = 20
@@ -383,26 +382,36 @@ struct AssistantPanelView: View {
 
     private var statusText: String? {
         switch session.phase {
-        case .responding, .sendingFollowUp:
+        case .sending:
+            return String(localized: "Sending")
+        case .streaming, .responding, .sendingFollowUp:
             return String(localized: "Thinking")
         case .failed(let message):
             return message
-        case .inactive, .ready:
+        case .ready:
+            return session.messages.isEmpty ? nil : String(localized: "Done")
+        case .inactive:
             return nil
         }
     }
 
     var body: some View {
         VStack(spacing: 8) {
-            messageList
+            if session.isAnswering {
+                messageList
+            }
             followUpRow
         }
         .padding(.horizontal, horizontalPadding)
         .padding(.vertical, 10)
-        .frame(height: 320)
+        .frame(maxHeight: .infinity)
         .onAppear(perform: focusFollowUpFieldIfAvailable)
         .onChange(of: session.phase) {
             focusFollowUpFieldIfAvailable()
+        }
+        .onChange(of: liveFollowUpText) { _, newValue in
+            guard !newValue.isEmpty else { return }
+            session.draftText = newValue
         }
     }
 
@@ -461,7 +470,7 @@ struct AssistantPanelView: View {
                         .allowsHitTesting(false)
                 }
 
-                TextField("", text: $draftMessage)
+                TextField("", text: $session.draftText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
                     .foregroundStyle(followUpTextColor)
@@ -477,33 +486,36 @@ struct AssistantPanelView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             Button(action: sendDraftMessage) {
-                Image(systemName: "paperplane.fill")
+                Image(systemName: "arrow.up")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(canSendDraft ? NinoPalette.ink : NinoPalette.cream.opacity(0.35))
-                    .frame(width: 24, height: 24)
+                    .frame(width: 28, height: 28)
                     .background(canSendDraft ? NinoPalette.gold : NinoPalette.surface3)
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
             .disabled(!canSendDraft)
-            .help("Send follow up")
+            .focusable()
+            .focusEffectDisabled(false)
+            .help("Send")
+            .accessibilityLabel(Text("Send"))
         }
     }
 
     private var shouldShowLiveFollowUpText: Bool {
-        draftMessage.isEmpty &&
+        session.draftText.isEmpty &&
             !liveFollowUpText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var canSendDraft: Bool {
         session.canSendFollowUp &&
-            !draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            !session.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func sendDraftMessage() {
-        let trimmed = draftMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = session.draftText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard session.canSendFollowUp, !trimmed.isEmpty else { return }
-        draftMessage = ""
+        session.draftText = ""
         onSend(trimmed)
         focusFollowUpFieldIfAvailable()
     }

@@ -15,10 +15,18 @@ struct AssistantDisplayMessage: Identifiable, Equatable {
 
 enum AssistantPhase: Equatable {
     case inactive
+    case sending
+    case streaming
     case responding
     case ready
     case sendingFollowUp
     case failed(String)
+}
+
+enum AssistantPanelSizeRule {
+    static func isAnswering(messageCount: Int, isBusy: Bool) -> Bool {
+        messageCount > 0 || isBusy
+    }
 }
 
 @MainActor
@@ -26,6 +34,7 @@ final class AssistantSession: ObservableObject {
     @Published private(set) var phase: AssistantPhase = .inactive
     @Published private(set) var messages: [AssistantDisplayMessage] = []
     @Published private(set) var isStubEntry = false
+    @Published var draftText = ""
 
     private(set) var provider: AIProvider?
     private(set) var modelName: String?
@@ -39,7 +48,11 @@ final class AssistantSession: ObservableObject {
     }
 
     var isBusy: Bool {
-        phase == .responding || phase == .sendingFollowUp
+        phase == .sending || phase == .streaming || phase == .responding || phase == .sendingFollowUp
+    }
+
+    var isAnswering: Bool {
+        AssistantPanelSizeRule.isAnswering(messageCount: messages.count, isBusy: isBusy)
     }
 
     var canSendFollowUp: Bool {
@@ -113,6 +126,14 @@ final class AssistantSession: ObservableObject {
         return userMessage
     }
 
+    func markSending() {
+        phase = .sending
+    }
+
+    func markStreaming() {
+        phase = .streaming
+    }
+
     @discardableResult
     func finishFollowUp(_ text: String) -> AssistantDisplayMessage {
         let assistantMessage = AssistantDisplayMessage(
@@ -144,6 +165,7 @@ final class AssistantSession: ObservableObject {
         promptName = nil
         systemPrompt = nil
         isStubEntry = false
+        draftText = ""
     }
 
     private func appendOrReplace(message: AssistantDisplayMessage) {

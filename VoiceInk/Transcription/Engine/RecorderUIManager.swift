@@ -26,12 +26,16 @@ enum RecorderPanelStyle: String, CaseIterable, Identifiable {
 @MainActor
 protocol RecorderPanelPresenting: AnyObject {
     var isRecorderPanelVisible: Bool { get }
+    var shouldCaptureAssistantDictation: Bool { get }
     func dismissRecorderPanel() async
 }
 
 @MainActor
 class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     var isAssistantVisible: Bool { engine?.assistantSession.isVisible == true }
+    var shouldCaptureAssistantDictation: Bool {
+        recorderPanelStyle == .notch && isRecorderPanelVisible && isAssistantVisible
+    }
     @Published var recorderPanelStyle: RecorderPanelStyle = .stored {
         didSet {
             guard oldValue != recorderPanelStyle else { return }
@@ -62,6 +66,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
 
     private weak var engine: VoiceInkEngine?
     private var recorder: Recorder?
+    private var openClawTask: Task<Void, Never>?
 
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "RecorderUIManager")
 
@@ -192,6 +197,8 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     func dismissRecorderPanel() async {
         guard let engine = engine else { return }
 
+        openClawTask?.cancel()
+        openClawTask = nil
         hideRecorderPanel()
         isRecorderPanelVisible = false
         engine.assistantSession.reset()
@@ -212,13 +219,44 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     private func sendAssistantMessage(_ text: String) async {
         guard let engine else { return }
         if engine.assistantSession.isStubEntry {
-            let message = engine.assistantSession.beginFollowUp(text)
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            guard engine.assistantSession.isStubEntry,
-                  engine.assistantSession.hasMessage(id: message.id) else { return }
-            engine.assistantSession.finishFollowUp("Wiring in progress — OpenClaw lands next.")
+            openClawTask?.cancel()
+            let session = engine.assistantSession
+            _ = session.beginFollowUp(text)
+            session.markSending()
+            openClawTask = Task { @MainActor [weak self, weak session] in
+                guard let self, let session else { return }
+                do {
+                    let reply = try await NinoOpenClawGateway().streamReply(
+                        messages: session.messages,
+                        onStreaming: { session.markStreaming() }
+                    )
+                    try Task.checkCancellation()
+                    session.finishFollowUp(reply)
+                } catch is CancellationError {
+                    return
+                } catch let error as URLError {
+                    if Self.isGatewayReachabilityFailure(error) {
+                        session.fail("Can't reach Nino's hands right now")
+                    } else {
+                        session.fail(error.localizedDescription)
+                    }
+                } catch {
+                    session.fail((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+                }
+                self.openClawTask = nil
+            }
         } else {
             await engine.sendAssistantFollowUp(text)
+        }
+    }
+
+    private static func isGatewayReachabilityFailure(_ error: URLError) -> Bool {
+        switch error.code {
+        case .cannotConnectToHost, .cannotFindHost, .networkConnectionLost,
+             .notConnectedToInternet, .timedOut:
+            return true
+        default:
+            return false
         }
     }
 

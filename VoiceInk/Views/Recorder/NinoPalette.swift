@@ -12,7 +12,6 @@ enum NinoPalette {
     static let cream = color(0xF6F3EC)
     static let creamDim = cream.opacity(0.56)
     static let border = gold.opacity(0.14)
-    static let live = color(0x7FD4E8)
 
     private static func color(_ hex: UInt32) -> Color {
         Color(

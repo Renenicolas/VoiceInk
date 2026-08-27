@@ -55,10 +55,20 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
     private let recordingSideExpansion: CGFloat = 90
     private let transcriptSideExpansion: CGFloat = 110
-    private let assistantSideExpansion: CGFloat = 230
+    private let assistantAskingSideExpansion: CGFloat = 150
+    private let assistantAnsweringSideExpansion: CGFloat = 230
     private let activeHeightBonus: CGFloat = 6
     private let transcriptPanelHeight: CGFloat = 57
-    private let assistantPanelHeight: CGFloat = 320
+    private let assistantAskingPanelHeight: CGFloat = 56
+    private let assistantAnsweringPanelHeight: CGFloat = 320
+
+    private var assistantSideExpansion: CGFloat {
+        assistantSession.isAnswering ? assistantAnsweringSideExpansion : assistantAskingSideExpansion
+    }
+
+    private var assistantPanelHeight: CGFloat {
+        assistantSession.isAnswering ? assistantAnsweringPanelHeight : assistantAskingPanelHeight
+    }
 
     private var mainRowHeight: CGFloat { notchHeight + activeHeightBonus }
 
@@ -122,6 +132,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             pill.position(x: geo.size.width / 2, y: pillHeight / 2)
         }
         .animation(pillAnimation, value: displayState)
+        .animation(expandAnimation, value: assistantSession.isAnswering)
     }
 
     // MARK: - Pill

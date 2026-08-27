@@ -4,6 +4,10 @@ import Foundation
 extension VoiceInkEngine {
     func sendAssistantFollowUp(_ text: String, transcription: Transcription? = nil) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if recorderUIManager?.shouldCaptureAssistantDictation == true {
+            assistantSession.draftText = trimmed
+            return
+        }
         guard !trimmed.isEmpty,
               let assistantChat,
               let provider = assistantSession.provider else {
