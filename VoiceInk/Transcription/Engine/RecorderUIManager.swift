@@ -226,20 +226,12 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
             openClawTask = Task { @MainActor [weak self, weak session] in
                 guard let self, let session else { return }
                 do {
-                    let reply = try await NinoOpenClawGateway().streamReply(
-                        messages: session.messages,
-                        onStreaming: { session.markStreaming() }
-                    )
+                    session.markStreaming()
+                    let reply = try await NinoOpenClawGateway.send(text)
                     try Task.checkCancellation()
                     session.finishFollowUp(reply)
                 } catch is CancellationError {
                     return
-                } catch let error as URLError {
-                    if Self.isGatewayReachabilityFailure(error) {
-                        session.fail("Can't reach Nino's hands right now")
-                    } else {
-                        session.fail(error.localizedDescription)
-                    }
                 } catch {
                     session.fail((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
                 }
@@ -250,15 +242,6 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         }
     }
 
-    private static func isGatewayReachabilityFailure(_ error: URLError) -> Bool {
-        switch error.code {
-        case .cannotConnectToHost, .cannotFindHost, .networkConnectionLost,
-             .notConnectedToInternet, .timedOut:
-            return true
-        default:
-            return false
-        }
-    }
 
     func resetOnLaunch() async {
         guard let engine = engine else { return }
