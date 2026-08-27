@@ -12,6 +12,7 @@ struct OnboardingView: View {
     @State private var isShowingSkipOnboardingConfirmation = false
 
     let contentMaxWidth: CGFloat = 560
+    private let containerMaxWidth: CGFloat = 720
 
     var body: some View {
         let isTranscriptionModelDownloaded = coordinator.isTranscriptionModelDownloaded(
@@ -228,6 +229,7 @@ struct OnboardingView: View {
             }
             .transition(.ninoOnboardingStep)
             .id(coordinator.stage)
+            .frame(maxWidth: containerMaxWidth, maxHeight: .infinity)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             OnboardingProgressBadge(
@@ -246,7 +248,7 @@ struct OnboardingView: View {
                     .transition(.opacity)
             }
         }
-        .frame(minWidth: 820, minHeight: 680)
+        .ignoresSafeArea()
         .animation(.easeInOut(duration: reduceMotion ? 0 : 0.24), value: coordinator.stage)
         .animation(.easeInOut(duration: reduceMotion ? 0 : 0.18), value: shouldShowSkipOnboardingButton)
         .alert("Skip onboarding?", isPresented: $isShowingSkipOnboardingConfirmation) {
@@ -309,6 +311,9 @@ struct OnboardingView: View {
         .onChange(of: coordinator.stage) { _, _ in
             coordinator.flow.activateExperienceModeForDemo()
             coordinator.flow.refreshExperienceModeState(enhancementService: enhancementService)
+        }
+        .onExitCommand {
+            NSApplication.shared.terminate(nil)
         }
     }
 

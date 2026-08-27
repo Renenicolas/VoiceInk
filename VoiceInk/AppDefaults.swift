@@ -39,7 +39,9 @@ enum AppDefaults {
             "SelectedLanguage": "en",
             "AppendTrailingSpace": true,
             "RecorderType": "mini",
-            RecorderDisplaySettingsKeys.showLiveTranscript: true,
+            // Off by default: the on-screen live-transcript panel is noise for most
+            // people, and Rene rejected it outright. Still togglable in Settings.
+            RecorderDisplaySettingsKeys.showLiveTranscript: false,
 
             // Cleanup
             CleanupSettingsKeys.isTranscriptionCleanupEnabled: false,

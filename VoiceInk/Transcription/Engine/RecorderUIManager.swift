@@ -168,6 +168,10 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     func toggleRecorderPanel(modeId: UUID? = nil) async {
         guard let engine = engine else { return }
 
+        NSLog("NINOKEY toggleRecorderPanel visible=%@ state=%@ captureAssistant=%@",
+              String(describing: isRecorderPanelVisible),
+              String(describing: engine.recordingState),
+              String(describing: shouldCaptureAssistantDictation))
         if isRecorderPanelVisible {
             switch engine.recordingState {
             case .recording:

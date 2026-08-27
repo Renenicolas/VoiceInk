@@ -14,6 +14,7 @@ class WindowManager: NSObject {
 
     private var mainWindow: NSWindow?
     private var didApplyInitialPlacement = false
+    private var isConfiguredForOnboarding = false
 
     private override init() {
         super.init()
@@ -27,7 +28,13 @@ class WindowManager: NSObject {
         }
         
         let requiredStyleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.styleMask.formUnion(requiredStyleMask)
+        if isConfiguredForOnboarding {
+            window.styleMask = requiredStyleMask
+            isConfiguredForOnboarding = false
+            didApplyInitialPlacement = false
+        } else {
+            window.styleMask.formUnion(requiredStyleMask)
+        }
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.backgroundColor = .clear
@@ -43,6 +50,50 @@ class WindowManager: NSObject {
         applyInitialPlacementIfNeeded(to: window)
         registerMainWindowIfNeeded(window)
         window.orderFrontRegardless()
+    }
+
+    func configureOnboardingWindow(_ window: NSWindow) {
+        registerMainWindowIfNeeded(window)
+        isConfiguredForOnboarding = true
+
+        window.styleMask = [.borderless]
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = false
+        window.isMovable = false
+        window.isMovableByWindowBackground = false
+        window.isReleasedWhenClosed = false
+        window.collectionBehavior = [.fullScreenPrimary]
+        window.level = .floating
+        window.minSize = .zero
+        window.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+
+        // Set the frame, then set it AGAIN on the next run-loop turn.
+        //
+        // SwiftUI owns this window: `.defaultSize` and `.windowResizability`
+        // re-apply a content-sized frame after the WindowAccessor callback runs,
+        // so a single setFrame here is silently undone and onboarding renders as
+        // a small dialog in the middle of a big screen — which is exactly what it
+        // did. Re-applying after SwiftUI has had its turn is what makes it stick.
+        applyOnboardingFrame(to: window)
+        DispatchQueue.main.async { [weak self] in
+            self?.applyOnboardingFrame(to: window)
+        }
+
+        window.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
+    /// Fill the screen the pointer is on, falling back to the main display.
+    private func applyOnboardingFrame(to window: NSWindow) {
+        guard isConfiguredForOnboarding else { return }
+        let screen = window.screen ?? NSScreen.main
+        guard let frame = screen?.frame else { return }
+        if window.frame != frame {
+            window.setFrame(frame, display: true)
+        }
     }
     
     func registerMainWindow(_ window: NSWindow) {

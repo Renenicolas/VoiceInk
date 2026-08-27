@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AppSidebar: View {
     @Binding var selectedView: ViewType
+    let visibility: NinoSidebarVisibility
 
     var body: some View {
         ZStack(alignment: .trailing) {
@@ -18,15 +19,56 @@ struct AppSidebar: View {
 
     private var sidebarContent: some View {
         VStack(spacing: 0) {
-            sidebarSection(ViewType.primaryItems)
+            ScrollView {
+                VStack(spacing: 6) {
+                    ForEach(visibleSectors) { sector in
+                        NinoSectorButton(
+                            sector: sector,
+                            isSelected: isSectorSelected(sector)
+                        ) {
+                            selectedView = destination(for: sector)
+                        }
+
+                        if sector.id == "voice" {
+                            sidebarSection(ViewType.voiceItems)
+                                .padding(.leading, 12)
+                        }
+                    }
+                }
+                .padding(.horizontal, 10)
                 .padding(.top, 10)
+            }
 
             Spacer(minLength: 16)
 
             sidebarSection(ViewType.secondaryItems)
+                .padding(.horizontal, 10)
                 .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var visibleSectors: [NinoSector] {
+        NinoSector.all.filter { visibility.sectorIDs.contains($0.id) }
+    }
+
+    private func destination(for sector: NinoSector) -> ViewType {
+        switch sector.id {
+        case "brain": return .brain
+        case "sweep": return .sweep
+        case "agent": return .agent
+        default: return .dashboard
+        }
+    }
+
+    private func isSectorSelected(_ sector: NinoSector) -> Bool {
+        switch sector.id {
+        case "voice": return ViewType.voiceItems.contains(selectedView)
+        case "brain": return selectedView == .brain
+        case "sweep": return selectedView == .sweep
+        case "agent": return selectedView == .agent
+        default: return false
+        }
     }
 
     private var sidebarBackground: some View {
@@ -52,7 +94,6 @@ struct AppSidebar: View {
                 }
             }
         }
-        .padding(.horizontal, 10)
     }
 }
 
@@ -66,7 +107,7 @@ private extension ViewType {
         }
     }
 
-    static let primaryItems: [ViewType] = [
+    static let voiceItems: [ViewType] = [
         .dashboard,
         .modes,
         .transcribeAudio,
@@ -83,7 +124,7 @@ private extension ViewType {
 
     static func assertSidebarItemsCoverAllCases() {
         #if DEBUG
-        let sidebarItems = primaryItems + secondaryItems
+        let sidebarItems = voiceItems + [.brain, .sweep, .agent] + secondaryItems
         assert(Set(sidebarItems) == Set(allCases) && sidebarItems.count == allCases.count)
         #endif
     }
@@ -97,6 +138,9 @@ private extension ViewType {
         case .modes: return "sparkles.square.fill.on.square"
         case .audio: return "mic.fill"
         case .dictionary: return "text.book.closed.fill"
+        case .brain: return "brain.head.profile"
+        case .sweep: return "sparkles"
+        case .agent: return "bolt.horizontal.circle.fill"
         case .settings: return "gearshape.fill"
         case .license: return "checkmark.seal.fill"
         }
@@ -118,11 +162,49 @@ private extension ViewType {
             return .init(background: AppTheme.Sidebar.audio)
         case .transcribeAudio:
             return .init(background: AppTheme.Sidebar.transcribeAudio)
+        case .brain, .sweep, .agent:
+            return .init(background: AppTheme.Sidebar.fallback)
         case .settings:
             return .init(background: AppTheme.Sidebar.fallback)
         case .license:
             return .init(background: AppTheme.Sidebar.license)
         }
+    }
+}
+
+private struct NinoSectorButton: View {
+    let sector: NinoSector
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(sector.label)
+                    .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                Text(sector.blurb)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(isSelected ? selectedForegroundColor.opacity(0.82) : .secondary)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isSelected ? selectedForegroundColor : Color.primary)
+            .padding(.horizontal, 10)
+            .frame(height: 44)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected ? Color(nsColor: .selectedContentBackgroundColor) : .clear)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help(sector.label)
+        .accessibilityLabel("\(sector.label). \(sector.blurb)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var selectedForegroundColor: Color {
+        Color(nsColor: .alternateSelectedControlTextColor)
     }
 }
 

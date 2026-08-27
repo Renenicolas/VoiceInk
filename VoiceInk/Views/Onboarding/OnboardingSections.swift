@@ -12,8 +12,96 @@ enum OnboardingMotion {
 }
 
 struct OnboardingBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
-        NinoPalette.ink.ignoresSafeArea()
+        ZStack {
+            if reduceTransparency {
+                NinoPalette.ink
+            } else {
+                OnboardingVisualEffectView()
+                NinoPalette.ink.opacity(0.82)
+            }
+
+            OnboardingAura(reduceMotion: reduceMotion)
+
+            RadialGradient(
+                colors: [.clear, NinoPalette.ink.opacity(0.54)],
+                center: .center,
+                startRadius: 180,
+                endRadius: 980
+            )
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct OnboardingVisualEffectView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) { }
+}
+
+private struct OnboardingAura: View {
+    let reduceMotion: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: reduceMotion ? 40 : 1.0 / 24.0)) { timeline in
+            let elapsed = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+            let firstPhase = elapsed.truncatingRemainder(dividingBy: 36) / 36 * .pi * 2
+            let secondPhase = elapsed.truncatingRemainder(dividingBy: 40) / 40 * .pi * 2
+
+            GeometryReader { geometry in
+                ZStack {
+                    // The dominant glow: large, CENTRED behind the content, and
+                    // actually visible. Lemon's reads as warm light behind frosted
+                    // glass right where you are looking, not as dim blobs pushed
+                    // into the corners — an earlier pass had two 0.10-0.16 alpha
+                    // circles offset to the edges and it read as nothing at all.
+                    aura(
+                        size: max(geometry.size.width, geometry.size.height) * 1.05,
+                        opacity: 0.42
+                    )
+                    .offset(
+                        x: cos(firstPhase) * geometry.size.width * 0.04,
+                        y: sin(firstPhase) * geometry.size.height * 0.05
+                    )
+
+                    // A second, tighter core so the middle stays warmest.
+                    aura(
+                        size: max(geometry.size.width, geometry.size.height) * 0.55,
+                        opacity: 0.30
+                    )
+                    .offset(
+                        x: cos(secondPhase + .pi) * geometry.size.width * 0.05,
+                        y: sin(secondPhase + .pi) * geometry.size.height * 0.04
+                    )
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func aura(size: CGFloat, opacity: Double) -> some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [NinoPalette.gold.opacity(opacity), NinoPalette.gold.opacity(0)],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: size / 2
+                )
+            )
+            .frame(width: size, height: size)
+            .blur(radius: 90)
     }
 }
 

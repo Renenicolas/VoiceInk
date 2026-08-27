@@ -18,7 +18,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     let onRecordButtonTapped: () -> Void
     let onCloseTapped: () -> Void
     let onAssistantFollowUp: (String) -> Void
-    @AppStorage(RecorderDisplaySettingsKeys.showLiveTranscript) private var showLiveTranscript = true
+    @AppStorage(RecorderDisplaySettingsKeys.showLiveTranscript) private var showLiveTranscript = false
 
     // MARK: - Display State
 
@@ -115,8 +115,16 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         displayState == .assistant
     }
 
+    /// Live words inside the Ask Nino box as you speak.
+    ///
+    /// Deliberately NOT gated on `showLiveTranscript`. That setting controls the
+    /// separate live-transcript PANEL that hangs on screen while dictating into
+    /// another app — Rene turned that off ("you should never be transcribing it
+    /// live"). Text appearing in the box he is looking at and about to send is a
+    /// different thing and stays on: without it, holding the key into an open
+    /// notch looks like nothing is happening.
     private var liveAssistantFollowUpText: String {
-        guard showLiveTranscript, stateProvider.recordingState == .recording else { return "" }
+        guard stateProvider.recordingState == .recording else { return "" }
         return stateProvider.partialTranscript
     }
 

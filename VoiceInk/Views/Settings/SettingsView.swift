@@ -21,7 +21,7 @@ struct SettingsView: View {
     @AppStorage(PasteMethod.userDefaultsKey) private var pasteMethodRawValue = PasteMethod.standard.rawValue
     @AppStorage(AppAppearancePreference.userDefaultsKey) private var appAppearancePreference = AppAppearancePreference.system
     @AppStorage(AppLanguagePreference.userDefaultsKey) private var appLanguagePreference = AppLanguagePreference.systemValue
-    @AppStorage(RecorderDisplaySettingsKeys.showLiveTranscript) private var showLiveTranscript = true
+    @AppStorage(RecorderDisplaySettingsKeys.showLiveTranscript) private var showLiveTranscript = false
     @AppStorage(PerAppStyleMemory.isEnabledKey) private var isPerAppStyleMemoryEnabled = true
     @State private var showResetOnboardingAlert = false
     @State private var showClearLearnedStylesAlert = false
