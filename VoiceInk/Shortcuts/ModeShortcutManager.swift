@@ -4,14 +4,17 @@ import Foundation
 class ModeShortcutManager {
     private let shortcutMonitor = ShortcutMonitor()
     private let modeProvider: @MainActor () -> RecordingShortcutManager.Mode
+    private let shouldUsePushToTalk: @MainActor () -> Bool
     private let shortcutModeHandler: RecordingShortcutModeHandler
     private var shortcutChangeObserver: NSObjectProtocol?
 
     init(
         modeProvider: @escaping @MainActor () -> RecordingShortcutManager.Mode,
+        shouldUsePushToTalk: @escaping @MainActor () -> Bool = { false },
         shortcutModeHandler: RecordingShortcutModeHandler
     ) {
         self.modeProvider = modeProvider
+        self.shouldUsePushToTalk = shouldUsePushToTalk
         self.shortcutModeHandler = shortcutModeHandler
 
         refreshModeShortcuts()
@@ -78,7 +81,7 @@ class ModeShortcutManager {
                     await self.shortcutModeHandler.handleKeyDown(
                         action: action,
                         eventTime: eventTime,
-                        mode: self.modeProvider(),
+                        mode: self.effectiveMode,
                         modeId: modeId
                     )
                 }
@@ -93,7 +96,7 @@ class ModeShortcutManager {
                     await self.shortcutModeHandler.handleKeyUp(
                         action: action,
                         eventTime: eventTime,
-                        mode: self.modeProvider(),
+                        mode: self.effectiveMode,
                         modeId: modeId
                     )
                 }
@@ -105,6 +108,10 @@ class ModeShortcutManager {
                 }
             }
         )
+    }
+
+    private var effectiveMode: RecordingShortcutManager.Mode {
+        shouldUsePushToTalk() ? .pushToTalk : modeProvider()
     }
 
     private func modeId(for action: ShortcutAction) -> UUID? {

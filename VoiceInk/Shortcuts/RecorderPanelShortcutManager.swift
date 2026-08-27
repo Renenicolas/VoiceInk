@@ -1,23 +1,34 @@
 import Foundation
 import AppKit
 import Carbon.HIToolbox
+import Combine
 
 @MainActor
 final class RecorderPanelShortcutManager: ObservableObject {
     private var recorderUIManager: RecorderUIManager
     private var visibilityTask: Task<Void, Never>?
     private var shortcutChangeObserver: NSObjectProtocol?
+    private var assistantVisibilityCancellable: AnyCancellable?
     private let visibleRecorderMonitor = ShortcutMonitor()
+    private let assistantSession: AssistantSession
     
     // Double-tap Escape handling
     private var firstEscapePressTime: Date? = nil
     private let escapeDoublePressThreshold: TimeInterval = 1.5
     private var escapeTimeoutTask: Task<Void, Never>?
     
-    init(recorderUIManager: RecorderUIManager) {
+    init(recorderUIManager: RecorderUIManager, assistantSession: AssistantSession) {
         self.recorderUIManager = recorderUIManager
+        self.assistantSession = assistantSession
         setupShortcutChangeObserver()
         setupVisibilityObserver()
+        assistantVisibilityCancellable = assistantSession.$phase
+            .map { $0 != .inactive }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.refreshVisibleShortcuts()
+            }
     }
 
     private func setupShortcutChangeObserver() {
@@ -71,7 +82,9 @@ final class RecorderPanelShortcutManager: ObservableObject {
 
         var shortcuts = ShortcutStore.shortcuts(for: ShortcutAction.recorderPanelStoredActions)
 
-        if ShortcutStore.shortcut(for: .cancelRecorder) == nil {
+        // Assistant Escape is handled locally by the key notch window. Recording states
+        // stay non-key and retain the existing global double-Escape cancel behavior.
+        if !assistantSession.isVisible && ShortcutStore.shortcut(for: .cancelRecorder) == nil {
             shortcuts[.recorderPanelEscape] = .key(keyCode: UInt16(kVK_Escape), modifierFlags: [])
         }
 

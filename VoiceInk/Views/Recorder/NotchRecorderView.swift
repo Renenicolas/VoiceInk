@@ -1,5 +1,16 @@
 import SwiftUI
 
+enum NotchPanelDisplayState: Equatable {
+    case collapsed
+    case active
+    case liveText
+    case assistant
+
+    // Dictation must leave the front app focused so its transcript can be pasted there.
+    // Only the assistant owns keyboard focus while its text field is visible.
+    var wantsKeyFocus: Bool { self == .assistant }
+}
+
 struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     @ObservedObject var stateProvider: S
     @ObservedObject var recorder: Recorder
@@ -11,14 +22,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
     // MARK: - Display State
 
-    private enum DisplayState: Equatable {
-        case collapsed
-        case active
-        case liveText
-        case assistant
-    }
-
-    private var displayState: DisplayState {
+    private var displayState: NotchPanelDisplayState {
         if assistantSession.isVisible {
             return .assistant
         }
@@ -133,6 +137,10 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         }
         .animation(pillAnimation, value: displayState)
         .animation(expandAnimation, value: assistantSession.isAnswering)
+        .onExitCommand {
+            guard displayState.wantsKeyFocus else { return }
+            onCloseTapped()
+        }
     }
 
     // MARK: - Pill
@@ -167,8 +175,8 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
                         recordingState: stateProvider.recordingState,
                         action: onRecordButtonTapped
                     )
+                    RecorderModeButton(buttonSize: 20, padding: EdgeInsets())
                 }
-                RecorderModeButton(buttonSize: 20, padding: EdgeInsets())
                 Spacer(minLength: 0)
             }
             .padding(.leading, sideEdgePadding)

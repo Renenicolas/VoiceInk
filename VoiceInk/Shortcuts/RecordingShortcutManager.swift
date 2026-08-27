@@ -152,12 +152,18 @@ class RecordingShortcutManager: ObservableObject {
 
         self.engine = engine
         self.recorderUIManager = recorderUIManager
-        self.recorderPanelShortcutManager = RecorderPanelShortcutManager(recorderUIManager: recorderUIManager)
+        self.recorderPanelShortcutManager = RecorderPanelShortcutManager(
+            recorderUIManager: recorderUIManager,
+            assistantSession: engine.assistantSession
+        )
         self.shortcutModeHandler = shortcutModeHandler
         self.primaryRecordingShortcutModeSource = primaryRecordingShortcutModeSource
         self.modeShortcutManager = ModeShortcutManager(
             modeProvider: {
                 primaryRecordingShortcutModeSource.primaryMode
+            },
+            shouldUsePushToTalk: {
+                recorderUIManager.shouldCaptureAssistantDictation
             },
             shortcutModeHandler: shortcutModeHandler
         )
