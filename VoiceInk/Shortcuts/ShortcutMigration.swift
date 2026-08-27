@@ -36,66 +36,102 @@ enum ShortcutMigration {
         migrateNinoInterfaceKeyMapIfNeeded()
     }
 
-    /// Rene's key map, v2 (2026-08-27).
+    /// Rene's key map, v3 (2026-08-27). Four keys, and Left-Control kept clear.
     ///
-    ///   Right-Option  = the Dictation mode  — raw, personalised, NO AI enhancement
-    ///   Right-Command = Ask Nino            — the notch
-    ///   Left-Option   = paste last enhancement
+    ///   Right-Option     Dictation        raw transcript, no AI enhancement
+    ///   Right-Command    Ask Nino         the notch
+    ///   Command+Option   Enhancement      AI-enhanced, per-app learned voice
+    ///   Left-Option      paste last enhancement
+    ///   Left-Control     deliberately EMPTY
     ///
-    /// v1 of this migration moved `primaryRecording` onto Right-Option and cleared
-    /// the Dictation mode shortcut that lived there. That was wrong, and subtly so:
-    /// `primaryRecording` records with whatever mode is ACTIVE, so the moment the
-    /// active mode was an enhancing one, holding Right-Option returned AI-rewritten
-    /// text instead of the raw transcript. The mode shortcut is deterministic —
-    /// it always runs Dictation (`usesAIEnhancement: false`) no matter what is
-    /// active. Right-Option must keep it.
+    /// Two earlier versions got this wrong and both mistakes are repaired here.
+    /// v1 put `primaryRecording` on Right-Option, which records with whatever mode
+    /// is ACTIVE — so it returned enhanced text whenever an enhancing mode was
+    /// selected. v2 fixed that but left `primaryRecording` unbound entirely, which
+    /// silently removed the key Rene had been holding to talk for months.
     ///
-    /// So the only key this frees is Right-Command, and it frees it by unbinding
-    /// `primaryRecording` rather than by relocating it.
+    /// KNOWN LIMIT, deliberate: the Command+Option chord cannot tell left from
+    /// right. `Shortcut.shortcutRelevant` keeps only the generic .command/.option
+    /// flags, not macOS's device-dependent left/right bits, so a chord shortcut is
+    /// matched on the combination alone. Either side fires it. Adding side
+    /// awareness means changing how every shortcut is matched, which is not worth
+    /// the regression risk on a working app — and in practice a bare chord is
+    /// harmless, because `isInterruptedByAdditionalKeyDown` cancels it the moment
+    /// any real key joins, so Cmd+Opt+letter still reaches the front app.
     static func migrateNinoInterfaceKeyMapIfNeeded() {
-        let migrationKey = "Shortcut_NinoInterfaceKeyMapV2Migrated"
+        let migrationKey = "Shortcut_NinoInterfaceKeyMapV3Migrated"
         guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
 
         let rightCommand = Shortcut.modifierOnly(keyCode: UInt16(kVK_RightCommand), modifierFlags: [.command])
         let rightOption = Shortcut.modifierOnly(keyCode: UInt16(kVK_RightOption), modifierFlags: [.option])
         let leftOption = Shortcut.modifierOnly(keyCode: UInt16(kVK_Option), modifierFlags: [.option])
         let fn = Shortcut.modifierOnly(keyCode: UInt16(kVK_Function), modifierFlags: [.function])
-        let dictationMode = ShortcutAction.mode(StarterModeCatalog.dictationModeId)
+        let commandOption = Shortcut.modifierOnly(keyCode: nil, modifierFlags: [.command, .option])
 
-        // Repair v1: if v1 pushed primaryRecording onto Right-Option, take it back
-        // off and restore the Dictation mode there. Only touch it if it still looks
-        // exactly like v1 left it — a hand-customised binding is never overwritten.
-        if ShortcutStore.shortcut(for: .primaryRecording) == rightOption {
+        let dictation = ShortcutAction.mode(StarterModeCatalog.dictationModeId)
+        let enhancement = ShortcutAction.mode(StarterModeCatalog.enhancementModeId)
+        let liveAnswers = ShortcutAction.mode(StarterModeCatalog.liveAnswersModeId)
+
+        // v1 left this on Right-Option, where it enhanced whenever the active mode
+        // did. It is not part of the map at all now: every recording key is a mode
+        // key, so what you hold decides what you get, never the current selection.
+        if ShortcutStore.shortcut(for: .primaryRecording) != nil {
             ShortcutStore.setShortcut(nil, for: .primaryRecording)
-            NSLog("Nino key map v2: unbound primaryRecording from Right-Option (it enhanced when the active mode did)")
-        }
-        if ShortcutStore.shortcut(for: dictationMode) == nil,
-           actionOccupying(rightOption, excluding: dictationMode) == nil {
-            ShortcutStore.setShortcut(rightOption, for: dictationMode)
-            NSLog("Nino key map v2: Right-Option restored to Dictation (raw, no AI enhancement)")
         }
 
-        // Free Left-Option for paste, then move paste off Fn (not on every keyboard).
+        // Right-Option -> Dictation (raw).
+        bind(dictation, to: rightOption)
+
+        // Command+Option -> Enhancement (AI, per-app voice).
+        bind(enhancement, to: commandOption)
+
+        // Left-Control stays clear.
+        if ShortcutStore.shortcut(for: liveAnswers) != nil {
+            NSLog("Nino key map v3: unbound Answers Live, Left-Control is kept clear")
+            ShortcutStore.setShortcut(nil, for: liveAnswers)
+        }
+
+        // Left-Option -> paste. Free it first; Fn is not on every keyboard.
         if ShortcutStore.shortcut(for: .handsFreeToggle) == leftOption {
             ShortcutStore.setShortcut(nil, for: .handsFreeToggle)
         }
-        moveShortcut(for: .pasteLastEnhancement, from: fn, to: leftOption)
+        if ShortcutStore.shortcut(for: .pasteLastEnhancement) == fn {
+            ShortcutStore.setShortcut(leftOption, for: .pasteLastEnhancement)
+        }
 
-        // Free Right-Command for Ask Nino by unbinding primaryRecording, never by
-        // stealing a key that carries a mode.
-        if ShortcutStore.shortcut(for: .primaryRecording) == rightCommand {
-            ShortcutStore.setShortcut(nil, for: .primaryRecording)
-        }
-        if ShortcutStore.rawShortcut(for: .assistantAsk) == nil,
-           !ShortcutStore.isShortcutCleared(for: .assistantAsk) {
-            if let blocker = actionOccupying(rightCommand, excluding: .assistantAsk) {
-                NSLog("Nino key map v2: skipped Ask Nino, Right-Command held by %@", blocker.storageName)
-            } else {
-                ShortcutStore.setShortcut(rightCommand, for: .assistantAsk)
-            }
-        }
+        // Right-Command -> Ask Nino.
+        bind(.assistantAsk, to: rightCommand)
 
         UserDefaults.standard.set(true, forKey: migrationKey)
+    }
+
+    /// Put `action` on `shortcut`, clearing whatever else is sitting there first.
+    /// Refuses only if the blocker is an action outside this map — those belong to
+    /// the user and are never taken.
+    private static func bind(_ action: ShortcutAction, to shortcut: Shortcut) {
+        if ShortcutStore.shortcut(for: action) == shortcut { return }
+        if let blocker = actionOccupying(shortcut, excluding: action) {
+            guard Self.ninoMapActions.contains(blocker) else {
+                NSLog("Nino key map v3: skipped %@, %@ is held by %@",
+                      action.storageName, shortcut.displayString, blocker.storageName)
+                return
+            }
+            ShortcutStore.setShortcut(nil, for: blocker)
+        }
+        ShortcutStore.setShortcut(shortcut, for: action)
+    }
+
+    /// The only actions this migration is allowed to move or clear.
+    private static var ninoMapActions: [ShortcutAction] {
+        [
+            .primaryRecording,
+            .handsFreeToggle,
+            .pasteLastEnhancement,
+            .assistantAsk,
+            .mode(StarterModeCatalog.dictationModeId),
+            .mode(StarterModeCatalog.enhancementModeId),
+            .mode(StarterModeCatalog.liveAnswersModeId),
+        ]
     }
 
     private static func moveShortcut(for action: ShortcutAction, from oldShortcut: Shortcut, to newShortcut: Shortcut) {

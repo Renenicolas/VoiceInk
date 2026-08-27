@@ -51,6 +51,14 @@ enum StarterModeCatalog {
     /// binds Right-Option to it directly — see ShortcutMigration v2.
     static let dictationModeId = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
 
+    /// The AI-enhanced mode that per-app learned-voice memory is allowed to shape.
+    /// Bound to Command+Option — see ShortcutMigration v3.
+    static let enhancementModeId = UUID(uuidString: "10000000-0000-0000-0000-000000000002")!
+
+    /// Answers Live. Named only so the migration can UNBIND it — Rene wants
+    /// Left-Control kept clear.
+    static let liveAnswersModeId = UUID(uuidString: "10000000-0000-0000-0000-000000000008")!
+
     static let templates: [StarterModeTemplate] = [
         StarterModeTemplate(
             kind: .clean,

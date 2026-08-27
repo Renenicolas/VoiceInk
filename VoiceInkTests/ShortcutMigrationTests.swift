@@ -5,7 +5,7 @@ import Testing
 @testable import VoiceInk
 
 struct ShortcutMigrationTests {
-    private let migrationKey = "Shortcut_NinoInterfaceKeyMapV2Migrated"
+    private let migrationKey = "Shortcut_NinoInterfaceKeyMapV3Migrated"
 
     @Test @MainActor func ninoInterfaceKeyMapMigrationMovesDefaultsPreservesCustomizationsAndIsIdempotent() {
         let defaults = UserDefaults.standard
