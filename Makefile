@@ -47,6 +47,7 @@ build: setup
 # Build for local use without Apple Developer certificate
 local: check setup
 	@echo "Building VoiceInk for local use (no Apple Developer certificate required)..."
+	@pkill -f "$(LOCAL_DERIVED_DATA)/Build/Products" 2>/dev/null || true
 	@rm -rf "$(LOCAL_DERIVED_DATA)"
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
@@ -133,6 +134,9 @@ NINO_SIGN_IDENTITY ?= Nino Code Signing
 
 nino: check setup
 	@echo "Building Nino Voice signed with '$(NINO_SIGN_IDENTITY)'..."
+	@# Never rebuild under a live instance: an app running out of .local-build has
+	@# its bundle replaced mid-flight and its menu bar item/resources go dark.
+	@pkill -f "$(LOCAL_DERIVED_DATA)/Build/Products" 2>/dev/null || true
 	@security find-identity -v -p codesigning $(NINO_SIGN_KEYCHAIN) | grep -q "$(NINO_SIGN_IDENTITY)" || \
 		{ echo "No '$(NINO_SIGN_IDENTITY)' identity. Run: make signing-cert"; exit 1; }
 	@security unlock-keychain -p $(NINO_SIGN_PASSWORD) $(NINO_SIGN_KEYCHAIN)
@@ -152,8 +156,12 @@ nino: check setup
 		rm -rf "$$HOME/Downloads/VoiceInk.app"; \
 		ditto "$$APP_PATH" "$$HOME/Downloads/VoiceInk.app"; \
 		xattr -cr "$$HOME/Downloads/VoiceInk.app"; \
+		codesign --force --deep --keychain $(NINO_SIGN_KEYCHAIN) --sign "$(NINO_SIGN_IDENTITY)" \
+			--entitlements "$(CURDIR)/VoiceInk/VoiceInk.local.entitlements" "$$HOME/Downloads/VoiceInk.app"; \
 		echo "Signed build at ~/Downloads/VoiceInk.app"; \
 		codesign -dvvv "$$HOME/Downloads/VoiceInk.app" 2>&1 | grep -E "Authority|CDHash=" | head -2; \
+		codesign -dvvv "$$HOME/Downloads/VoiceInk.app" 2>&1 | grep -q "Authority=$(NINO_SIGN_IDENTITY)" || \
+			{ echo "ERROR: build is NOT signed with '$(NINO_SIGN_IDENTITY)' — permissions will not persist"; exit 1; }; \
 	fi
 
 # Create the signing certificate and its keychain from scratch. Idempotent-ish:
@@ -181,6 +189,18 @@ signing-cert:
 	security list-keychains -d user -s login.keychain-db $(NINO_SIGN_KEYCHAIN); \
 	rm -rf $$W; \
 	security find-identity -v -p codesigning $(NINO_SIGN_KEYCHAIN)
+
+# Install the freshly built app where macOS expects it. Running the app out of
+# .local-build or ~/Downloads is what made the menu bar icon vanish: builds
+# replace those bundles, nothing relaunches them after a reboot, and no login
+# item can point at them. /Applications/Nino Voice.app is the one true install.
+install:
+	@test -d "$$HOME/Downloads/VoiceInk.app" || { echo "No build in ~/Downloads. Run: make nino"; exit 1; }
+	@pkill -x VoiceInk 2>/dev/null || true; sleep 1
+	rm -rf "/Applications/Nino Voice.app"
+	ditto "$$HOME/Downloads/VoiceInk.app" "/Applications/Nino Voice.app"
+	open "/Applications/Nino Voice.app"
+	@echo "Installed and launched /Applications/Nino Voice.app"
 
 # Sign an already-built app with the stable certificate.
 sign:
