@@ -157,6 +157,9 @@ struct VoiceInkApp: App {
 
         appDelegate.menuBarManager = menuBarManager
 
+        // Nino Notch is the only screen in the notch; hand it the live engine.
+        NinoNotchBridge.shared.configure(engine: engine, recorderUIManager: recorderUIManager, menuBarManager: menuBarManager)
+
         // Ensure no lingering recording state from previous runs
         Task {
             await recorderUIManager.resetOnLaunch()

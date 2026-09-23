@@ -220,7 +220,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         isRecorderPanelVisible = true
     }
 
-    private func sendAssistantMessage(_ text: String) async {
+    func sendAssistantMessage(_ text: String) async {
         guard let engine else { return }
         if engine.assistantSession.isStubEntry {
             openClawTask?.cancel()
