@@ -11,7 +11,7 @@ enum RecorderPanelStyle: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .notch:
-            return String(localized: "Notch")
+            return String(localized: "Nino Notch")
         case .mini:
             return String(localized: "Mini")
         }
@@ -61,7 +61,6 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         }
     }
 
-    private var notchWindowManager: NotchWindowManager?
     private var miniWindowManager: MiniWindowManager?
 
     private weak var engine: VoiceInkEngine?
@@ -86,29 +85,9 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
 
         switch recorderPanelStyle {
         case .notch:
-            if notchWindowManager == nil {
-                notchWindowManager = NotchWindowManager(
-                    engine: engine,
-                    recorder: recorder,
-                    assistantSession: engine.assistantSession,
-                    onRecordButtonTapped: { [weak self] in
-                        Task { @MainActor in
-                            await self?.toggleRecorderPanel()
-                        }
-                    },
-                    onCloseTapped: { [weak self] in
-                        Task { @MainActor in
-                            await self?.dismissRecorderPanel()
-                        }
-                    },
-                    onAssistantFollowUp: { [weak self] text in
-                        Task { @MainActor in
-                            await self?.sendAssistantMessage(text)
-                        }
-                    }
-                )
-            }
-            notchWindowManager?.show()
+            // Nino Notch draws this. It reads isRecorderPanelVisible and the
+            // assistant session through NinoNotchBridge; nothing to show here.
+            break
         case .mini:
             if miniWindowManager == nil {
                 miniWindowManager = MiniWindowManager(
@@ -139,7 +118,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     private func hideRecorderPanel() {
         switch recorderPanelStyle {
         case .notch:
-            notchWindowManager?.hide()
+            break
         case .mini:
             miniWindowManager?.hide()
         }
@@ -150,8 +129,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
 
         switch previousStyle {
         case .notch:
-            notchWindowManager?.destroyWindow()
-            notchWindowManager = nil
+            break
         case .mini:
             miniWindowManager?.destroyWindow()
             miniWindowManager = nil

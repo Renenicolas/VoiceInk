@@ -14,7 +14,8 @@ class MenuBarManager: ObservableObject {
     private var engine: VoiceInkEngine?
 
     init() {
-        self.isMenuBarOnly = UserDefaults.standard.bool(forKey: "IsMenuBarOnly")
+        // Headless under Nino Notch: never a dock icon unless a window is open.
+        self.isMenuBarOnly = NinoNotchBridge.isHeadless || UserDefaults.standard.bool(forKey: "IsMenuBarOnly")
         updateAppActivationPolicy()
 
         NotificationCenter.default.addObserver(

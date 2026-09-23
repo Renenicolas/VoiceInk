@@ -9,7 +9,7 @@
 	<key>SUPublicEDKey</key>
 	<string>gnXep9+mzNXFSbX0jU7CpLtubcQ5WVfVGe0BxsSdS40=</string>
 	<key>LSUIElement</key>
-	<false/>
+	<true/>
 	<key>SUEnableAutomaticChecks</key>
 	<false/>
 	<key>SUScheduledCheckInterval</key>

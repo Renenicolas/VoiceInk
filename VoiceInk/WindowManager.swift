@@ -49,6 +49,10 @@ class WindowManager: NSObject {
         window.setFrameAutosaveName(Self.mainWindowAutosaveName)
         applyInitialPlacementIfNeeded(to: window)
         registerMainWindowIfNeeded(window)
+        if NinoNotchBridge.suppressesLaunchWindow {
+            window.orderOut(nil)
+            return
+        }
         window.orderFrontRegardless()
     }
 
@@ -86,6 +90,10 @@ class WindowManager: NSObject {
             self?.applyOnboardingFrame(to: window)
         }
 
+        if NinoNotchBridge.suppressesLaunchWindow {
+            window.orderOut(nil)
+            return
+        }
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
