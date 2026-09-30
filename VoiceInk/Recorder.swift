@@ -158,9 +158,7 @@ class Recorder: NSObject, ObservableObject {
         audioMeterUpdateTimer?.cancel()
         muteSystemAudio()
 
-        let coreAudioRecorder = recorder ?? CoreAudioRecorder()
-        coreAudioRecorder.onAudioChunk = onAudioChunk
-        recorder = coreAudioRecorder
+        let coreAudioRecorder = existingOrNewRecorder()
 
         do {
             // Offload hardware start to avoid shortcut lag.
@@ -173,6 +171,12 @@ class Recorder: NSObject, ObservableObject {
                         continuation.resume(throwing: error)
                     }
                 }
+            }
+
+            // Another app can leave the device feeding nothing. If no input arrived shortly
+            // after start, rebuild the AUHAL once on the same serial queue.
+            audioSetupQueue.asyncAfter(deadline: .now() + 1.0) {
+                coreAudioRecorder.restartIfNoInput()
             }
 
             startAudioMeterTimer()
@@ -271,9 +275,7 @@ class Recorder: NSObject, ObservableObject {
             return
         }
 
-        let coreAudioRecorder = recorder ?? CoreAudioRecorder()
-        coreAudioRecorder.onAudioChunk = onAudioChunk
-        recorder = coreAudioRecorder
+        let coreAudioRecorder = existingOrNewRecorder()
 
         audioSetupQueue.async { [logger] in
             do {
@@ -282,6 +284,18 @@ class Recorder: NSObject, ObservableObject {
                 logger.warning("Recorder prepare failed reason=\(reason, privacy: .public) deviceID=\(deviceID, privacy: .public) error=\(error, privacy: .public)")
             }
         }
+    }
+
+    private func existingOrNewRecorder() -> CoreAudioRecorder {
+        let coreAudioRecorder = recorder ?? CoreAudioRecorder()
+        coreAudioRecorder.onAudioChunk = onAudioChunk
+        coreAudioRecorder.onDeviceConfigurationChanged = { [weak coreAudioRecorder, audioSetupQueue] in
+            audioSetupQueue.async {
+                coreAudioRecorder?.handleDeviceConfigurationChange()
+            }
+        }
+        recorder = coreAudioRecorder
+        return coreAudioRecorder
     }
 
     private func updateAudioMeter() {

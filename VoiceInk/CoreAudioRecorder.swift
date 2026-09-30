@@ -75,6 +75,33 @@ final class CoreAudioRecorder: @unchecked Sendable {
     private let renderCallbacksInFlight = ManagedAtomic<UInt32>(0)
     private let droppedInputBuffersBackpressure = ManagedAtomic<UInt64>(0)
     private let droppedInputBuffersCapacity = ManagedAtomic<UInt64>(0)
+    /// Frames actually rendered from the device during the current recording.
+    private let capturedFrameCount = ManagedAtomic<UInt64>(0)
+    /// Set when another app reconfigures the prepared device, so the cached AUHAL is not reused.
+    private let deviceConfigurationStale = ManagedAtomic(false)
+    private var didRetryAfterSilentStart = false
+    /// When we last (re)built the unit ourselves. Our own rebuild makes the HAL emit the very
+    /// notifications we listen for, so ignore anything arriving right after one.
+    private var lastRebuildTime: CFAbsoluteTime = 0
+
+    // Property listener on the prepared input device. Another app (GarageBand, Zoom, ...) can
+    // change its sample rate/stream format while our AUHAL stays "valid" but delivers nothing.
+    private let deviceListenerQueue = DispatchQueue(label: "com.prakashjoshipax.voiceink.deviceListener")
+    private var deviceListenerBlock: AudioObjectPropertyListenerBlock?
+    private var deviceListenerAddresses: [AudioObjectPropertyAddress] = []
+    private var listenedDeviceID: AudioDeviceID = 0
+
+    private static let deviceConfigurationAddresses: [AudioObjectPropertyAddress] = [
+        AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyNominalSampleRate, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain),
+        AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyStreamFormat, mScope: kAudioObjectPropertyScopeInput, mElement: kAudioObjectPropertyElementMain),
+        AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyStreamConfiguration, mScope: kAudioObjectPropertyScopeInput, mElement: kAudioObjectPropertyElementMain),
+        AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyDeviceHasChanged, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+    ]
+
+    /// Set once by the owner before any recording starts. Called off the main thread when the
+    /// prepared device is reconfigured; the owner must hop to its audio setup queue and call
+    /// `handleDeviceConfigurationChange()` there so it serialises with start/stop/switch.
+    var onDeviceConfigurationChanged: (() -> Void)?
 
     /// Called from the recorder processing queue with raw PCM data (16-bit, 16kHz, mono) for streaming.
     private let audioChunkLock = NSLock()
@@ -116,6 +143,12 @@ final class CoreAudioRecorder: @unchecked Sendable {
             return
         }
 
+        try rebuildAudioUnit(deviceID: deviceID)
+    }
+
+    /// Tears down any prepared AUHAL and builds a fresh one for `deviceID`.
+    /// Safe to call while a recording file is open; it does not touch the file.
+    private func rebuildAudioUnit(deviceID: AudioDeviceID) throws {
         teardownPreparedAudioUnit()
         currentDeviceID = deviceID
 
@@ -135,6 +168,10 @@ final class CoreAudioRecorder: @unchecked Sendable {
             teardownPreparedAudioUnit()
             throw error
         }
+
+        addDeviceConfigurationListener(for: deviceID)
+        deviceConfigurationStale.store(false, ordering: .releasing)
+        lastRebuildTime = CFAbsoluteTimeGetCurrent()
     }
 
     /// Starts recording from the specified device to the given URL (WAV format)
@@ -150,6 +187,8 @@ final class CoreAudioRecorder: @unchecked Sendable {
             // The output file is per recording; the AUHAL setup above is reused.
             try createOutputFile(at: url)
             resetAudioProcessingState()
+            capturedFrameCount.store(0, ordering: .relaxed)
+            didRetryAfterSilentStart = false
 
             try startAudioUnit()
         } catch {
@@ -193,6 +232,53 @@ final class CoreAudioRecorder: @unchecked Sendable {
         recordingURL = nil
 
         resetMeters()
+
+        // A recording that rendered nothing means the device stopped feeding this AUHAL
+        // (usually another app reconfigured it). Drop the unit so the next press rebuilds.
+        if wasRecording, capturedFrameCount.load(ordering: .relaxed) == 0 {
+            logger.error("🎙️ Recording captured 0 input frames from device \(self.currentDeviceID, privacy: .public) — discarding the prepared AUHAL so the next recording rebuilds it")
+            teardownPreparedAudioUnit()
+        }
+    }
+
+    /// Rebuilds the AUHAL mid-recording if no input arrived shortly after start. Runs at most
+    /// once per recording, and must be called on the owner's audio setup queue.
+    func restartIfNoInput() {
+        guard isRecording,
+              !didRetryAfterSilentStart,
+              capturedFrameCount.load(ordering: .relaxed) == 0 else { return }
+
+        didRetryAfterSilentStart = true
+        let deviceID = currentDeviceID
+        logger.warning("🎙️ No input frames after starting device \(deviceID, privacy: .public) — rebuilding the AUHAL once")
+
+        recordingActive.store(false, ordering: .releasing)
+        do {
+            try rebuildAudioUnit(deviceID: deviceID)
+            try startAudioUnit()
+        } catch {
+            isRecording = false
+            recordingActive.store(false, ordering: .releasing)
+            logger.error("🎙️ Silent-start recovery failed for device \(deviceID, privacy: .public): \(error, privacy: .public)")
+        }
+    }
+
+    /// Reacts to another app reconfiguring the prepared device. Must be called on the owner's
+    /// audio setup queue so it serialises with start/stop/switch.
+    func handleDeviceConfigurationChange() {
+        guard deviceConfigurationStale.load(ordering: .acquiring), currentDeviceID != 0 else { return }
+
+        // Idle: the stale flag alone is enough, prepare() rebuilds on the next press.
+        // Just rebuilt: the notification is almost certainly our own, and rebuilding again
+        // would loop. The flag stays set, so prepare() still rebuilds if it was real.
+        guard isRecording, CFAbsoluteTimeGetCurrent() - lastRebuildTime > 1.0 else { return }
+
+        let deviceID = currentDeviceID
+        do {
+            try reconfigureDevice(to: deviceID)
+        } catch {
+            logger.error("🎙️ Failed to rebuild device \(deviceID, privacy: .public) after reconfiguration: \(error, privacy: .public)")
+        }
     }
 
     /// Releases the prepared AUHAL and buffers. Use for app shutdown or hard recovery.
@@ -210,15 +296,20 @@ final class CoreAudioRecorder: @unchecked Sendable {
 
     /// Switches to a new input device mid-recording without stopping the file write
     func switchDevice(to newDeviceID: AudioDeviceID) throws {
+        // Don't switch if it's the same device
+        guard newDeviceID != currentDeviceID else { return }
+        try reconfigureDevice(to: newDeviceID)
+    }
+
+    /// Stop / uninitialize / reconfigure / restart the AUHAL, keeping the output file open.
+    /// `newDeviceID` may be the current device, which re-reads its (possibly changed) format.
+    private func reconfigureDevice(to newDeviceID: AudioDeviceID) throws {
         guard isRecording, let unit = audioUnit else {
             throw CoreAudioRecorderError.audioUnitNotInitialized
         }
 
-        // Don't switch if it's the same device
-        guard newDeviceID != currentDeviceID else { return }
-
         let oldDeviceID = currentDeviceID
-        logger.notice("🎙️ Switching recording device from \(oldDeviceID, privacy: .public) to \(newDeviceID, privacy: .public)")
+        logger.notice("🎙️ Reconfiguring recording device \(oldDeviceID, privacy: .public) → \(newDeviceID, privacy: .public)")
 
         // Step 1: Stop the AudioUnit (but keep file open)
         recordingActive.store(false, ordering: .releasing)
@@ -332,7 +423,11 @@ final class CoreAudioRecorder: @unchecked Sendable {
         }
         recordingActive.store(true, ordering: .releasing)
 
-        logger.notice("🎙️ Successfully switched to device \(newDeviceID, privacy: .public)")
+        addDeviceConfigurationListener(for: newDeviceID)
+        deviceConfigurationStale.store(false, ordering: .releasing)
+        lastRebuildTime = CFAbsoluteTimeGetCurrent()
+
+        logger.notice("🎙️ Successfully reconfigured to device \(newDeviceID, privacy: .public)")
     }
 
     // MARK: - AudioUnit Setup
@@ -627,7 +722,11 @@ final class CoreAudioRecorder: @unchecked Sendable {
     }
 
     private func isPrepared(for deviceID: AudioDeviceID) -> Bool {
-        audioUnit != nil && isAudioUnitInitialized && currentDeviceID == deviceID && isDeviceAvailable(deviceID)
+        audioUnit != nil
+            && isAudioUnitInitialized
+            && currentDeviceID == deviceID
+            && !deviceConfigurationStale.load(ordering: .acquiring)
+            && isDeviceAvailable(deviceID)
     }
 
     private func validateDevice(_ deviceID: AudioDeviceID) throws {
@@ -650,6 +749,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
     }
 
     private func teardownPreparedAudioUnit() {
+        removeDeviceConfigurationListener()
         recordingActive.store(false, ordering: .releasing)
         if let unit = audioUnit {
             AudioOutputUnitStop(unit)
@@ -689,6 +789,48 @@ final class CoreAudioRecorder: @unchecked Sendable {
     private func resetMeters() {
         averagePowerBits.store(Float32(-160.0).bitPattern, ordering: .relaxed)
         peakPowerBits.store(Float32(-160.0).bitPattern, ordering: .relaxed)
+    }
+
+    // MARK: - Device Configuration Listener
+
+    private func addDeviceConfigurationListener(for deviceID: AudioDeviceID) {
+        removeDeviceConfigurationListener()
+
+        let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            guard let self else { return }
+            self.deviceConfigurationStale.store(true, ordering: .releasing)
+            self.logger.notice("🎙️ Input device \(deviceID, privacy: .public) was reconfigured by another client — prepared AUHAL marked stale")
+            self.onDeviceConfigurationChanged?()
+        }
+
+        var registered: [AudioObjectPropertyAddress] = []
+        for address in Self.deviceConfigurationAddresses {
+            var addr = address
+            let status = AudioObjectAddPropertyListenerBlock(deviceID, &addr, deviceListenerQueue, block)
+            if status == noErr {
+                registered.append(addr)
+            } else {
+                logger.debug("🎙️ Could not observe property \(addr.mSelector, privacy: .public) on device \(deviceID, privacy: .public): \(status, privacy: .public)")
+            }
+        }
+
+        guard !registered.isEmpty else { return }
+        deviceListenerBlock = block
+        deviceListenerAddresses = registered
+        listenedDeviceID = deviceID
+    }
+
+    private func removeDeviceConfigurationListener() {
+        guard let block = deviceListenerBlock else { return }
+
+        for address in deviceListenerAddresses {
+            var addr = address
+            AudioObjectRemovePropertyListenerBlock(listenedDeviceID, &addr, deviceListenerQueue, block)
+        }
+
+        deviceListenerBlock = nil
+        deviceListenerAddresses = []
+        listenedDeviceID = 0
     }
 
     // MARK: - Input Callback
@@ -764,6 +906,8 @@ final class CoreAudioRecorder: @unchecked Sendable {
         if status != noErr {
             return status
         }
+
+        capturedFrameCount.wrappingIncrement(by: UInt64(inNumberFrames), ordering: .relaxed)
 
         // Calculate audio meters from input buffer
         calculateMeters(from: &bufferList, frameCount: inNumberFrames)
