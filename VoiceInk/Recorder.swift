@@ -31,6 +31,9 @@ class Recorder: NSObject, ObservableObject {
         didSet { recorder?.onAudioChunk = onAudioChunk }
     }
     
+    /// Frames the last recording actually captured. Zero means the mic gave us nothing.
+    var lastRecordingCapturedFrames: UInt64 { recorder?.lastRecordingCapturedFrames ?? 0 }
+
     enum RecorderError: Error {
         case couldNotStartRecording
     }

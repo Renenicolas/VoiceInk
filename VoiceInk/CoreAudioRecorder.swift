@@ -290,6 +290,10 @@ final class CoreAudioRecorder: @unchecked Sendable {
         resetMeters()
     }
 
+    /// Frames rendered from the device during the most recent recording.
+    /// Zero after a stop means the mic delivered nothing at all.
+    var lastRecordingCapturedFrames: UInt64 { capturedFrameCount.load(ordering: .relaxed) }
+
     var isCurrentlyRecording: Bool { isRecording }
     var currentRecordingURL: URL? { recordingURL }
     var currentDevice: AudioDeviceID { currentDeviceID }
