@@ -138,6 +138,7 @@ class TranscriptionPipeline {
             }
 
             text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
+            text = SmartNumberFormatter.format(text)
             let cleanedText = text
 
             let actualDuration = await AudioFileMetadata.duration(for: audioURL)
