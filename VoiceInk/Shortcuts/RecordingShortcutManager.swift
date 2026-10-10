@@ -143,6 +143,9 @@ class RecordingShortcutManager: ObservableObject {
             },
             hasCapturedSpeech: {
                 !engine.partialTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            },
+            micLevel: {
+                engine.recorder.audioMeter.peakPower
             }
         )
 
@@ -399,6 +402,8 @@ final class RecordingShortcutModeHandler {
     private let cancelRecording: @MainActor () async -> Void
     private let isStreamingSession: @MainActor () -> Bool
     private let hasCapturedSpeech: @MainActor () -> Bool
+    /// Normalized (0...1, where 0 = -60 dB and 1 = 0 dB) smoothed mic peak level.
+    private let micLevel: @MainActor () -> Double
 
     private var shortcutPressStartTime: TimeInterval?
     private var isHandsFreeRecording = false
@@ -426,7 +431,8 @@ final class RecordingShortcutModeHandler {
         cancelRecording: @escaping @MainActor () async -> Void,
         isStreamingSession: @escaping @MainActor () -> Bool,
         hasCapturedSpeech: @escaping @MainActor () -> Bool,
-        silenceAutoCancelDelay: TimeInterval = 6
+        micLevel: @escaping @MainActor () -> Double = { 0 },
+        silenceAutoCancelDelay: TimeInterval = 8
     ) {
         self.canHandleShortcutAction = canHandleShortcutAction
         self.isRecorderVisible = isRecorderVisible
@@ -435,6 +441,7 @@ final class RecordingShortcutModeHandler {
         self.cancelRecording = cancelRecording
         self.isStreamingSession = isStreamingSession
         self.hasCapturedSpeech = hasCapturedSpeech
+        self.micLevel = micLevel
         self.silenceAutoCancelDelay = silenceAutoCancelDelay
     }
 
@@ -455,19 +462,70 @@ final class RecordingShortcutModeHandler {
     /// the shortcut is pressed again. Only applies to streaming models, where `hasCapturedSpeech`
     /// is a real signal — batch models never populate a partial transcript mid-recording, so
     /// there's no reliable way to tell silence from real speech before the recording ends.
+    // Rene's eMeet mic: room silence peaks around -45..-35 dB, his speech -34..-20 dB
+    // (calibrated on 140 real recordings, Oct 2026). -34 dB = 0.433 on the 0...1 meter.
+    private static let voiceLevelThreshold: Double = 0.433
+    // Loud polls (50 ms apart) needed before we call it a voice, so one click or pop
+    // can't count. The first half second after the mic goes live is ignored: the
+    // eMeet emits a pop when it opens.
+    private static let voiceTicksRequired = 4
+    private static let micOpenPopIgnore: TimeInterval = 0.5
+    private static let pollInterval: TimeInterval = 0.05
+
+    /// Watches a hands-free recording and cancels it only if the mic has been LIVE for the full
+    /// window and neither the streaming transcript nor the mic level ever showed a voice.
+    ///
+    /// Two bugs this replaces (Oct 2026): the window used to start at key-up, so when the mic
+    /// took ~4 s to come up the recording was killed ~2 s after it actually started; and "speech"
+    /// meant only "the streaming model has produced a partial", which lags real speech by a
+    /// second or more, so real sentences were thrown away as silence.
     private func scheduleSilenceAutoCancel() {
         silenceAutoCancelTask?.cancel()
         let sessionID = UUID()
         handsFreeSessionID = sessionID
-        let delay = silenceAutoCancelDelay
+        let window = silenceAutoCancelDelay
+        let tickNanos = UInt64(Self.pollInterval * 1_000_000_000)
         silenceAutoCancelTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            guard let self, !Task.isCancelled else { return }
-            guard self.isHandsFreeRecording,
+            // 1. Wait for the mic to actually be live. Starting can take seconds.
+            var waited: TimeInterval = 0
+            while true {
+                guard let self, !Task.isCancelled,
+                      self.isHandsFreeRecording,
+                      self.handsFreeSessionID == sessionID else { return }
+                let state = self.recordingState()
+                if state == .recording { break }
+                guard state == .starting, waited < 20 else { return }
+                try? await Task.sleep(nanoseconds: tickNanos)
+                waited += Self.pollInterval
+            }
+
+            // 2. Count only live-mic time; any sign of a voice ends the watch for good.
+            var live: TimeInterval = 0
+            var loudTicks = 0
+            while live < window {
+                try? await Task.sleep(nanoseconds: tickNanos)
+                live += Self.pollInterval
+                guard let self, !Task.isCancelled,
+                      self.isHandsFreeRecording,
+                      self.handsFreeSessionID == sessionID,
+                      self.recordingState() == .recording else { return }
+                if self.hasCapturedSpeech() { return }
+                if live > Self.micOpenPopIgnore, self.micLevel() >= Self.voiceLevelThreshold {
+                    loudTicks += 1
+                    if loudTicks >= Self.voiceTicksRequired {
+                        ninoDbg("NINODBG silence-watch: voice heard at %.2fs live, keeping recording", live)
+                        return
+                    }
+                }
+            }
+
+            guard let self, !Task.isCancelled,
+                  self.isHandsFreeRecording,
                   self.handsFreeSessionID == sessionID,
                   self.recordingState() == .recording,
                   self.isStreamingSession(),
                   !self.hasCapturedSpeech() else { return }
+            ninoDbg("NINODBG silence-watch: auto-cancel after %.1fs of live mic with no voice (loudTicks=%ld)", live, loudTicks)
             self.reset()
             await self.cancelRecording()
         }
@@ -539,7 +597,7 @@ final class RecordingShortcutModeHandler {
             scheduleSilenceAutoCancel()
 
         case .pushToTalk:
-            NSLog("NINOKEY pushToTalk-branch visible=%@ canHandle=%@ state=%@",
+            ninoDbg("NINOKEY pushToTalk-branch visible=%@ canHandle=%@ state=%@",
                   String(describing: isRecorderVisible()),
                   String(describing: canHandleShortcutAction()),
                   String(describing: recordingState()))

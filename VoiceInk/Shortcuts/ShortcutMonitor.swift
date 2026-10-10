@@ -165,6 +165,12 @@ final class ShortcutMonitor {
     ) -> Bool {
         var shouldSuppress = false
 
+        if kind == .flagsChanged {
+            ninoDbg("NINODBG mod keyCode=%ld flags=%lu", Int(keyCode), modifierFlags.rawValue & 0xFFFF0000)
+        } else if kind == .keyDown, shortcuts.values.contains(where: { $0.isDown }) {
+            ninoDbg("NINODBG other-key pressed while a shortcut is held")
+        }
+
         if kind == .keyDown {
             handleShortcutInterruptions(keyCode: keyCode, eventTime: eventTime)
         }
@@ -313,18 +319,21 @@ final class ShortcutMonitor {
     }
 
     private func dispatchKeyDown(for action: ShortcutAction, eventTime: TimeInterval) {
+        ninoDbg("NINODBG shortcut DOWN %@", action.storageName)
         DispatchQueue.main.async { [onKeyDown] in
             onKeyDown?(action, eventTime)
         }
     }
 
     private func dispatchKeyUp(for action: ShortcutAction, eventTime: TimeInterval) {
+        ninoDbg("NINODBG shortcut UP %@", action.storageName)
         DispatchQueue.main.async { [onKeyUp] in
             onKeyUp?(action, eventTime)
         }
     }
 
     private func dispatchShortcutInterrupted(for action: ShortcutAction, eventTime: TimeInterval) {
+        ninoDbg("NINODBG shortcut INTERRUPTED %@", action.storageName)
         DispatchQueue.main.async { [onShortcutInterrupted] in
             onShortcutInterrupted?(action, eventTime)
         }

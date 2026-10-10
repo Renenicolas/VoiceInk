@@ -123,7 +123,7 @@ final class StreamingTranscriptionSession: TranscriptionSession {
                 logger.notice("Streaming stop/transcribe started model=\(model.displayName, privacy: .public)")
                 let text = try await streamingService.stopAndGetFinalText()
                 logger.notice("Streaming transcript received elapsed=\(Date().timeIntervalSince(start), format: .fixed(precision: 3), privacy: .public)s chars=\(text.count, privacy: .public)")
-                return text
+                return await recheckWithFullRecordingIfNeeded(streamingText: text, audioURL: audioURL, model: model)
             } catch {
                 logger.error("❌ Streaming failed, falling back to batch: \(error, privacy: .public)")
                 startupTask?.cancel()
@@ -143,6 +143,39 @@ final class StreamingTranscriptionSession: TranscriptionSession {
         let text = try await fallbackService.transcribe(audioURL: audioURL, model: model, context: context)
         logger.notice("Batch fallback completed elapsed=\(Date().timeIntervalSince(fallbackStart), format: .fixed(precision: 3), privacy: .public)s chars=\(text.count, privacy: .public)")
         return text
+    }
+
+    /// The live (streaming) pass can come back blank or clipped: speech that landed before the
+    /// streaming model was ready, a last phrase lost at stop, or a session that never produced
+    /// a partial. When that happens the whole recording is still on disk, so run the full
+    /// (batch) model over it and keep whichever result has more words. Nothing here can make a
+    /// good transcript worse: the batch text is only used when it is longer.
+    private func recheckWithFullRecordingIfNeeded(
+        streamingText: String,
+        audioURL: URL,
+        model: any TranscriptionModel
+    ) async -> String {
+        let trimmed = streamingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let duration = await AudioFileMetadata.duration(for: audioURL)
+        let streamingWords = trimmed.isEmpty ? 0 : WordCounter.count(in: trimmed)
+
+        // Blank after something real-length, or far fewer words than the time spoken
+        // (normal talking is ~2.5 words/s; under 0.35 words/s over 6 s+ means words went missing).
+        let blank = streamingWords == 0 && duration >= 0.8
+        let tooShort = duration >= 6 && duration <= 900 && Double(streamingWords) < duration * 0.35
+        guard blank || tooShort else { return streamingText }
+
+        let start = Date()
+        do {
+            let batchText = try await fallbackService.transcribe(audioURL: audioURL, model: model, context: context)
+            let batchWords = WordCounter.count(in: batchText)
+            ninoDbg("NINODBG recheck: streaming=%ld words, full-recording=%ld words, %.1fs audio, took %.2fs",
+                    streamingWords, batchWords, duration, Date().timeIntervalSince(start))
+            return batchWords > streamingWords ? batchText : streamingText
+        } catch {
+            ninoDbg("NINODBG recheck failed: %@", error.localizedDescription)
+            return streamingText
+        }
     }
 
     func cancel() {

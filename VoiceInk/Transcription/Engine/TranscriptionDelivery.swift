@@ -47,7 +47,18 @@ final class TranscriptionDelivery {
         if let text = request.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
             await paste(text, output: request.output, actions: actions)
         } else {
+            // A real-length recording that produced no words used to vanish with no sign
+            // anything happened. Say so, so a dead mic or a lost take is never silent.
+            let seconds = request.transcription.duration
+            ninoDbg("NINODBG delivery: no words in %.1fs recording, nothing pasted", seconds)
             await actions.dismiss()
+            if seconds >= 1.5 {
+                NotificationManager.shared.showNotification(
+                    title: String(format: "Didn't catch any words in that %.0fs recording. Nothing was pasted.", seconds),
+                    type: .warning,
+                    duration: 4.0
+                )
+            }
         }
     }
 
@@ -149,6 +160,7 @@ final class TranscriptionDelivery {
 
     private func paste(_ text: String, output: OutputRuntimeConfiguration, actions: Actions) async {
         let textToPaste = deliverableText(from: text)
+        ninoDbg("NINODBG delivery.paste after transcription")
         let appendSpace = UserDefaults.standard.bool(forKey: "AppendTrailingSpace")
         let pastedText = textToPaste + (appendSpace ? " " : "")
         SoundManager.shared.playStopSound()

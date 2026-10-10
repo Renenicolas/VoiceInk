@@ -146,7 +146,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     func toggleRecorderPanel(modeId: UUID? = nil) async {
         guard let engine = engine else { return }
 
-        NSLog("NINOKEY toggleRecorderPanel visible=%@ state=%@ captureAssistant=%@",
+        ninoDbg("NINOKEY toggleRecorderPanel visible=%@ state=%@ captureAssistant=%@",
               String(describing: isRecorderPanelVisible),
               String(describing: engine.recordingState),
               String(describing: shouldCaptureAssistantDictation))
@@ -187,6 +187,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     }
 
     func toggleAssistantAsk() async {
+        ninoDbg("NINODBG toggleAssistantAsk state=%@ visible=%@", String(describing: engine?.recordingState), String(describing: isRecorderPanelVisible))
         guard let engine, engine.recordingState == .idle else { return }
         if isRecorderPanelVisible && engine.assistantSession.isVisible {
             await dismissRecorderPanel()
@@ -235,6 +236,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     }
 
     func cancelRecording() async {
+        ninoDbg("NINODBG cancelRecording")
         guard let engine = engine else { return }
         await engine.cancelRecording()
         await dismissRecorderPanel()
@@ -258,6 +260,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     }
 
     @objc public func handleToggleRecorderPanelNotification() {
+        ninoDbg("NINODBG toggleRecorderPanel via NOTIFICATION (app intent / audio device)")
         Task {
             await toggleRecorderPanel()
         }

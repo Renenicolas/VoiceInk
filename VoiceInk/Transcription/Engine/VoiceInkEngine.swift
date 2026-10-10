@@ -178,6 +178,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
     // MARK: - Toggle Record
 
     func toggleRecord(modeId: UUID? = nil, isAssistantFollowUp: Bool = false) async {
+        ninoDbg("NINODBG engine.toggleRecord state=%@ mode=%@ followUp=%@", String(describing: recordingState), modeId?.uuidString ?? "-", String(describing: isAssistantFollowUp))
         if recordingState == .starting {
             await cancelRecording()
             return
@@ -190,6 +191,15 @@ class VoiceInkEngine: NSObject, ObservableObject {
             partialTranscript = ""
             recordingState = .transcribing
             await recorder.stopRecording()
+
+            // A press that captured no audio at all — another app took the mic, or it was a
+            // stray tap — is not a transcription. Drop the empty file so no blank row is saved;
+            // from here it is handled exactly like having no recording.
+            if let recordedFile, !shouldCancelRecording, recorder.lastRecordingCapturedFrames == 0 {
+                logger.notice("Discarding recording with no captured audio: \(recordedFile.lastPathComponent, privacy: .public)")
+                try? FileManager.default.removeItem(at: recordedFile)
+                self.recordedFile = nil
+            }
 
             if let recordedFile {
                 if !shouldCancelRecording {

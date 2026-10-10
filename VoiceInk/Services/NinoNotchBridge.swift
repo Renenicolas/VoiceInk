@@ -64,7 +64,7 @@ final class NinoNotchBridge {
         do {
             try server.start()
         } catch {
-            NSLog("NINOBRIDGE could not open %@: %@", Self.socketPath, String(describing: error))
+            ninoDbg("NINOBRIDGE could not open %@: %@", Self.socketPath, String(describing: error))
         }
 
         engine.objectWillChange
@@ -101,7 +101,7 @@ final class NinoNotchBridge {
     private func handle(_ data: Data) {
         guard let engine, let ui = recorderUIManager,
               let command = try? JSONDecoder().decode(NinoBridgeCommand.self, from: data) else { return }
-        NSLog("NINOBRIDGE cmd=%@", command.cmd)
+        ninoDbg("NINOBRIDGE cmd=%@", command.cmd)
         Task { @MainActor in
             switch command.cmd {
             case "hello":
@@ -411,4 +411,12 @@ final class NinoBridgeSocketServer: @unchecked Sendable {
             return true
         }
     }
+}
+
+/// TEMP debug (NINODBG): macOS redacts NSLog text, so write to a plain file.
+func ninoDbg(_ format: String, _ args: CVarArg...) {
+    let line = "\(Date().formatted(.iso8601.time(includingFractionalSeconds: true))) [\(ProcessInfo.processInfo.processName)] " + String(format: format, arguments: args) + "\n"
+    let url = URL(fileURLWithPath: NSHomeDirectory() + "/Library/Logs/nino-debug.log")
+    if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close() }
+    else { try? Data(line.utf8).write(to: url) }
 }

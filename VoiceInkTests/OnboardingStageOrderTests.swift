@@ -2,7 +2,7 @@ import XCTest
 @testable import VoiceInk
 
 final class OnboardingStageOrderTests: XCTestCase {
-    func testIntentPrecedesPermissionsAndShortcutsFollowPermissions() {
+    func testIntentPrecedesPermissionsAndShortcutsFollowPermissions() throws {
         let stages = OnboardingStage.allCases
 
         let intent = try XCTUnwrap(stages.firstIndex(of: .intent))

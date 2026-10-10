@@ -56,6 +56,7 @@ class LastTranscriptionService: ObservableObject {
     }
 
     static func pasteLastTranscription(from modelContext: ModelContext) {
+        ninoDbg("NINODBG pasteLastTranscription (Left Option shortcut)")
         guard let lastTranscription = getLastTranscription(from: modelContext) else {
             Task { @MainActor in
                 NotificationManager.shared.showNotification(

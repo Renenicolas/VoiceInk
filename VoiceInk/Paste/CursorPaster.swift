@@ -45,6 +45,7 @@ class CursorPaster {
 
     @MainActor
     private static func performPasteSession(_ text: String) async -> PasteResult {
+        ninoDbg("NINODBG PASTE into=%@ chars=%ld text=%@", NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", text.count, String(text.prefix(80)))
         let pasteboard = NSPasteboard.general
         let shouldRestoreClipboard = UserDefaults.standard.bool(forKey: "restoreClipboardAfterPaste")
         let savedContents = shouldRestoreClipboard ? snapshotClipboard(from: pasteboard) : []
@@ -60,6 +61,8 @@ class CursorPaster {
         }
 
         await wait(prePasteDelay)
+        await waitForModifierKeysReleased()
+        ninoDbg("NINODBG PASTE focus=%@", focusedElementDescription())
 
         let pasteResult = await postPasteCommand()
         if shouldRestoreClipboard {
@@ -205,6 +208,43 @@ class CursorPaster {
         cmdUp.post(tap: .cghidEventTap)
 
         return .commandPosted
+    }
+
+    /// The dictation hotkey is a modifier (Right Option). If it, or any other modifier, is
+    /// still physically down when Cmd+V goes out, the app can see Cmd+Option+V, which is not
+    /// paste. Wait briefly (max 0.6 s) for the hands to come off the modifiers.
+    private static func waitForModifierKeysReleased() async {
+        let modifiers: CGEventFlags = [.maskAlternate, .maskCommand, .maskControl, .maskShift]
+        var waited: TimeInterval = 0
+        while waited < 0.6 {
+            let held = CGEventSource.flagsState(.hidSystemState).intersection(modifiers)
+            if held.isEmpty { break }
+            await wait(0.02)
+            waited += 0.02
+        }
+        if waited > 0 {
+            ninoDbg("NINODBG PASTE waited %.2fs for modifier keys to be released", waited)
+        }
+    }
+
+    /// What has keyboard focus right now, for the debug log: if a paste ever goes missing,
+    /// this says whether there was a text box to receive it.
+    @MainActor
+    private static func focusedElementDescription() -> String {
+        let system = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(system, 0.25)
+        var focused: CFTypeRef?
+        let err = AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focused)
+        guard err == .success, let focused, CFGetTypeID(focused) == AXUIElementGetTypeID() else {
+            return "none(ax=\(err.rawValue))"
+        }
+        let element = focused as! AXUIElement
+        AXUIElementSetMessagingTimeout(element, 0.25)
+        var role: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
+        var settable = DarwinBoolean(false)
+        AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable)
+        return "\((role as? String) ?? "?") editable=\(settable.boolValue)"
     }
 
     private static func wait(_ seconds: TimeInterval) async {

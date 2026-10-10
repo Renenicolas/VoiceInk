@@ -12,6 +12,8 @@ struct RecordingShortcutModeHandlerSilenceAutoCancelTests {
         var recordingState: RecordingState = .idle
         var isStreaming = true
         var hasSpeech = false
+        var micLevel: Double = 0
+        var startsAs: RecordingState = .recording
         var cancelCallCount = 0
         var toggleCallCount = 0
     }
@@ -23,7 +25,7 @@ struct RecordingShortcutModeHandlerSilenceAutoCancelTests {
             recordingState: { spy.recordingState },
             toggleRecorderPanel: { _ in
                 spy.toggleCallCount += 1
-                spy.recordingState = spy.recordingState == .recording ? .idle : .recording
+                spy.recordingState = spy.recordingState == .idle ? spy.startsAs : .idle
             },
             cancelRecording: {
                 spy.cancelCallCount += 1
@@ -31,6 +33,7 @@ struct RecordingShortcutModeHandlerSilenceAutoCancelTests {
             },
             isStreamingSession: { spy.isStreaming },
             hasCapturedSpeech: { spy.hasSpeech },
+            micLevel: { spy.micLevel },
             silenceAutoCancelDelay: delay
         )
     }
@@ -87,5 +90,50 @@ struct RecordingShortcutModeHandlerSilenceAutoCancelTests {
 
         #expect(spy.toggleCallCount == 2)
         #expect(spy.cancelCallCount == 0)
+    }
+
+    /// Oct 2026 bug: the window started at key-up, so a mic that took ~4 s to come up got
+    /// killed ~2 s after it went live. Time spent in `.starting` must not count.
+    @Test func slowMicStartDoesNotCountTowardTheWindow() async {
+        let spy = Spy()
+        spy.startsAs = .starting
+        let handler = makeHandler(spy: spy, delay: 0.2)
+
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .toggle)
+        await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .toggle)
+
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        #expect(spy.cancelCallCount == 0)
+
+        spy.recordingState = .recording
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        #expect(spy.cancelCallCount == 1)
+    }
+
+    /// Oct 2026 bug: real sentences were canceled because the streaming partial lagged.
+    /// A sustained voice-level signal from the mic must keep the recording alive.
+    @Test func voiceOnTheMicPreventsAutoCancel() async {
+        let spy = Spy()
+        spy.micLevel = 0.6
+        let handler = makeHandler(spy: spy, delay: 1.0)
+
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .toggle)
+        await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .toggle)
+
+        try? await Task.sleep(nanoseconds: 1_400_000_000)
+        #expect(spy.cancelCallCount == 0)
+    }
+
+    /// Room noise below the voice threshold still counts as silence.
+    @Test func quietRoomStillAutoCancels() async {
+        let spy = Spy()
+        spy.micLevel = 0.3
+        let handler = makeHandler(spy: spy, delay: 0.8)
+
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .toggle)
+        await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .toggle)
+
+        try? await Task.sleep(nanoseconds: 1_300_000_000)
+        #expect(spy.cancelCallCount == 1)
     }
 }

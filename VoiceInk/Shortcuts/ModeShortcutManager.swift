@@ -68,7 +68,7 @@ class ModeShortcutManager {
             }
         }
 
-        NSLog("NINOKEY registered=%@", shortcuts.keys.map { $0.storageName }.joined(separator: ","))
+        ninoDbg("NINOKEY registered=%@", shortcuts.keys.map { $0.storageName }.joined(separator: ","))
         shortcutMonitor.start(
             shortcuts: shortcuts,
             interruptibleActions: Set(shortcuts.keys),
@@ -79,7 +79,7 @@ class ModeShortcutManager {
                         return
                     }
 
-                    NSLog("NINOKEY down action=%@ mode=%@", action.storageName, String(describing: self.effectiveMode))
+                    ninoDbg("NINOKEY down action=%@ mode=%@", action.storageName, String(describing: self.effectiveMode))
                     await self.shortcutModeHandler.handleKeyDown(
                         action: action,
                         eventTime: eventTime,
@@ -95,7 +95,7 @@ class ModeShortcutManager {
                         return
                     }
 
-                    NSLog("NINOKEY up mode=%@ pushToTalk=%@ modeId=%@",
+                    ninoDbg("NINOKEY up mode=%@ pushToTalk=%@ modeId=%@",
                           String(describing: self.effectiveMode),
                           String(describing: self.shouldUsePushToTalk()),
                           modeId.uuidString)
