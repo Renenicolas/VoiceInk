@@ -194,7 +194,8 @@ struct RecordingShortcutModeHandlerSilenceAutoCancelTests {
         #expect(spy.cancelCallCount == 0)
     }
 
-    @Test func defaultWindowIsFourSeconds() async {
+    /// Rene, Oct 11 2026: no auto-cancel. A silent recording keeps running until he cancels it.
+    @Test func defaultNeverAutoCancels() async {
         let spy = Spy()
         let handler = RecordingShortcutModeHandler(
             canHandleShortcutAction: { true },
@@ -208,9 +209,10 @@ struct RecordingShortcutModeHandlerSilenceAutoCancelTests {
         await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .hybrid)
         await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .hybrid)
 
-        try? await Task.sleep(nanoseconds: 3_600_000_000)
+        try? await Task.sleep(nanoseconds: 9_000_000_000)
         #expect(spy.cancelCallCount == 0)
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        #expect(spy.cancelCallCount == 1)
+        #expect(spy.recordingState == .recording)
+        // Still knows nothing was said, so Esc cancels on one press.
+        #expect(handler.isSilentHandsFreeRecording)
     }
 }

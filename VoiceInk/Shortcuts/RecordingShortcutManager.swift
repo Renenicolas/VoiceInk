@@ -426,7 +426,9 @@ final class RecordingShortcutModeHandler {
     // has no other way to stop itself. Without this, a tap that captures no speech records
     // silently until the shortcut is pressed again, and whatever ambient audio happened in
     // between gets transcribed and delivered instead of being canceled.
-    private let silenceAutoCancelDelay: TimeInterval
+    /// nil = never auto-cancel (Rene's choice, Oct 11 2026: a silent recording keeps running
+    /// until he cancels it himself with Option or Esc). Tests can pass a window.
+    private let silenceAutoCancelDelay: TimeInterval?
 
     init(
         canHandleShortcutAction: @escaping @MainActor () -> Bool,
@@ -437,8 +439,7 @@ final class RecordingShortcutModeHandler {
         isStreamingSession: @escaping @MainActor () -> Bool,
         hasCapturedSpeech: @escaping @MainActor () -> Bool,
         micLevel: @escaping @MainActor () -> Double = { 0 },
-        // Rene, Oct 11 2026: 4 s of live mic with no voice = nothing coming, cancel.
-        silenceAutoCancelDelay: TimeInterval = 4
+        silenceAutoCancelDelay: TimeInterval? = nil
     ) {
         self.canHandleShortcutAction = canHandleShortcutAction
         self.isRecorderVisible = isRecorderVisible
@@ -495,7 +496,8 @@ final class RecordingShortcutModeHandler {
     private static let micOpenPopIgnore: TimeInterval = 0.5
     private static let pollInterval: TimeInterval = 0.05
 
-    /// Watches a hands-free recording and cancels it only if the mic has been LIVE for the full
+    /// Tracks whether a voice has been heard (used by the quiet second-press / Esc cancel).
+    /// Auto-cancel is OFF by default; when a window is set (tests only), it cancels only if the mic has been LIVE for the full
     /// window and neither the streaming transcript nor the mic level ever showed a voice.
     ///
     /// Two bugs this replaces (Oct 2026): the window used to start at key-up, so when the mic
@@ -526,7 +528,9 @@ final class RecordingShortcutModeHandler {
             // 2. Count only live-mic time; any sign of a voice ends the watch for good.
             var live: TimeInterval = 0
             var loudTicks = 0
-            while live < window {
+            // No window = keep listening for a voice for as long as the recording runs,
+            // but never cancel on our own.
+            while window.map({ live < $0 }) ?? true {
                 try? await Task.sleep(nanoseconds: tickNanos)
                 live += Self.pollInterval
                 guard let self, !Task.isCancelled,
@@ -544,7 +548,8 @@ final class RecordingShortcutModeHandler {
                 }
             }
 
-            guard let self, !Task.isCancelled,
+            guard window != nil,
+                  let self, !Task.isCancelled,
                   self.isHandsFreeRecording,
                   self.handsFreeSessionID == sessionID,
                   self.recordingState() == .recording,
