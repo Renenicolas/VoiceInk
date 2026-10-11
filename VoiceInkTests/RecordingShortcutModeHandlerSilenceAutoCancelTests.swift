@@ -76,9 +76,10 @@ struct RecordingShortcutModeHandlerSilenceAutoCancelTests {
         #expect(spy.cancelCallCount == 0)
     }
 
-    @Test func secondPressBeforeTimeoutStopsInsteadOfCanceling() async {
+    @Test func secondPressAfterSpeechStopsInsteadOfCanceling() async {
         let spy = Spy()
         let handler = makeHandler(spy: spy, delay: 2.0)
+        spy.hasSpeech = true
 
         await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .toggle)
         await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .toggle)
@@ -134,6 +135,82 @@ struct RecordingShortcutModeHandlerSilenceAutoCancelTests {
         await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .toggle)
 
         try? await Task.sleep(nanoseconds: 1_300_000_000)
+        #expect(spy.cancelCallCount == 1)
+    }
+
+    /// Rene, Oct 2026: tap Option, say nothing, tap Option again -> it just goes away.
+    @Test func secondPressWithNoSpeechCancelsQuietly() async {
+        let spy = Spy()
+        let handler = makeHandler(spy: spy, delay: 2.0)
+
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .hybrid)
+        await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .hybrid)
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0.66, mode: .hybrid)
+
+        #expect(spy.cancelCallCount == 1)
+        #expect(spy.toggleCallCount == 1)
+        #expect(spy.recordingState == .idle)
+    }
+
+    /// A second press after a real voice on the mic (even before any words stream) must stop
+    /// and transcribe, never cancel.
+    @Test func secondPressAfterVoiceOnMicStops() async {
+        let spy = Spy()
+        spy.micLevel = 0.6
+        let handler = makeHandler(spy: spy, delay: 2.0)
+
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .hybrid)
+        await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .hybrid)
+        try? await Task.sleep(nanoseconds: 900_000_000)
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0.96, mode: .hybrid)
+
+        #expect(spy.cancelCallCount == 0)
+        #expect(spy.toggleCallCount == 2)
+    }
+
+    @Test func escWithNoSpeechCancelsOnFirstPress() async {
+        let spy = Spy()
+        let handler = makeHandler(spy: spy, delay: 2.0)
+
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .hybrid)
+        await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .hybrid)
+        let canceled = await handler.cancelIfSilentHandsFree()
+
+        #expect(canceled)
+        #expect(spy.cancelCallCount == 1)
+    }
+
+    @Test func escAfterSpeechIsLeftToDoubleEsc() async {
+        let spy = Spy()
+        let handler = makeHandler(spy: spy, delay: 2.0)
+
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .hybrid)
+        await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .hybrid)
+        spy.hasSpeech = true
+        let canceled = await handler.cancelIfSilentHandsFree()
+
+        #expect(!canceled)
+        #expect(spy.cancelCallCount == 0)
+    }
+
+    @Test func defaultWindowIsFourSeconds() async {
+        let spy = Spy()
+        let handler = RecordingShortcutModeHandler(
+            canHandleShortcutAction: { true },
+            isRecorderVisible: { spy.recordingState != .idle },
+            recordingState: { spy.recordingState },
+            toggleRecorderPanel: { _ in spy.recordingState = spy.recordingState == .idle ? .recording : .idle },
+            cancelRecording: { spy.cancelCallCount += 1; spy.recordingState = .idle },
+            isStreamingSession: { true },
+            hasCapturedSpeech: { false }
+        )
+        await handler.handleKeyDown(action: .secondaryRecording, eventTime: 0, mode: .hybrid)
+        await handler.handleKeyUp(action: .secondaryRecording, eventTime: 0.05, mode: .hybrid)
+
+        try? await Task.sleep(nanoseconds: 3_600_000_000)
+        #expect(spy.cancelCallCount == 0)
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
         #expect(spy.cancelCallCount == 1)
     }
 }

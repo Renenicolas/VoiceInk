@@ -16,10 +16,17 @@ final class RecorderPanelShortcutManager: ObservableObject {
     private var firstEscapePressTime: Date? = nil
     private let escapeDoublePressThreshold: TimeInterval = 1.5
     private var escapeTimeoutTask: Task<Void, Never>?
+    /// Cancels a hands-free recording on a single Esc if nothing has been said yet.
+    private let cancelIfSilentHandsFree: @MainActor () async -> Bool
     
-    init(recorderUIManager: RecorderUIManager, assistantSession: AssistantSession) {
+    init(
+        recorderUIManager: RecorderUIManager,
+        assistantSession: AssistantSession,
+        cancelIfSilentHandsFree: @escaping @MainActor () async -> Bool = { false }
+    ) {
         self.recorderUIManager = recorderUIManager
         self.assistantSession = assistantSession
+        self.cancelIfSilentHandsFree = cancelIfSilentHandsFree
         setupShortcutChangeObserver()
         setupVisibilityObserver()
         assistantVisibilityCancellable = assistantSession.$phase
@@ -131,6 +138,12 @@ final class RecorderPanelShortcutManager: ObservableObject {
             return
         }
         guard ShortcutStore.shortcut(for: .cancelRecorder) == nil else { return }
+
+        // Nothing said yet: one Esc is enough. Double-Esc still guards real dictation.
+        if await cancelIfSilentHandsFree() {
+            resetEscapeState()
+            return
+        }
 
         let now = Date()
         if let firstTime = firstEscapePressTime,

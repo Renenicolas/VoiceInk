@@ -157,7 +157,10 @@ class RecordingShortcutManager: ObservableObject {
         self.recorderUIManager = recorderUIManager
         self.recorderPanelShortcutManager = RecorderPanelShortcutManager(
             recorderUIManager: recorderUIManager,
-            assistantSession: engine.assistantSession
+            assistantSession: engine.assistantSession,
+            cancelIfSilentHandsFree: {
+                await shortcutModeHandler.cancelIfSilentHandsFree()
+            }
         )
         self.shortcutModeHandler = shortcutModeHandler
         self.primaryRecordingShortcutModeSource = primaryRecordingShortcutModeSource
@@ -414,6 +417,8 @@ final class RecordingShortcutModeHandler {
     private var lastShortcutPressTime: Date?
     private var silenceAutoCancelTask: Task<Void, Never>?
     private var handsFreeSessionID: UUID?
+    /// True once the silence watch has heard a real voice in the current hands-free recording.
+    private var voiceHeardInSession = false
 
     private let shortcutPressCooldown: TimeInterval = 0.5
     private let hybridPressThreshold: TimeInterval = 0.5
@@ -432,7 +437,8 @@ final class RecordingShortcutModeHandler {
         isStreamingSession: @escaping @MainActor () -> Bool,
         hasCapturedSpeech: @escaping @MainActor () -> Bool,
         micLevel: @escaping @MainActor () -> Double = { 0 },
-        silenceAutoCancelDelay: TimeInterval = 8
+        // Rene, Oct 11 2026: 4 s of live mic with no voice = nothing coming, cancel.
+        silenceAutoCancelDelay: TimeInterval = 4
     ) {
         self.canHandleShortcutAction = canHandleShortcutAction
         self.isRecorderVisible = isRecorderVisible
@@ -455,6 +461,23 @@ final class RecordingShortcutModeHandler {
         silenceAutoCancelTask?.cancel()
         silenceAutoCancelTask = nil
         handsFreeSessionID = nil
+        voiceHeardInSession = false
+    }
+
+    /// A hands-free recording is running and nothing has been said into it yet
+    /// (no streaming words, no voice-level signal on the mic).
+    var isSilentHandsFreeRecording: Bool {
+        isHandsFreeRecording && !voiceHeardInSession && !hasCapturedSpeech()
+    }
+
+    /// Esc during a silent hands-free recording: throw it away right now, no second press,
+    /// no "didn't catch any words" notice. Returns false (does nothing) if anything was said.
+    func cancelIfSilentHandsFree() async -> Bool {
+        guard isSilentHandsFreeRecording else { return false }
+        ninoDbg("NINODBG silence-watch: Esc with no voice, canceling")
+        reset()
+        await cancelRecording()
+        return true
     }
 
     /// Auto-cancels a hands-free recording that captured no speech, so a quick tap that
@@ -483,6 +506,7 @@ final class RecordingShortcutModeHandler {
         silenceAutoCancelTask?.cancel()
         let sessionID = UUID()
         handsFreeSessionID = sessionID
+        voiceHeardInSession = false
         let window = silenceAutoCancelDelay
         let tickNanos = UInt64(Self.pollInterval * 1_000_000_000)
         silenceAutoCancelTask = Task { [weak self] in
@@ -509,10 +533,11 @@ final class RecordingShortcutModeHandler {
                       self.isHandsFreeRecording,
                       self.handsFreeSessionID == sessionID,
                       self.recordingState() == .recording else { return }
-                if self.hasCapturedSpeech() { return }
+                if self.hasCapturedSpeech() { self.voiceHeardInSession = true; return }
                 if live > Self.micOpenPopIgnore, self.micLevel() >= Self.voiceLevelThreshold {
                     loudTicks += 1
                     if loudTicks >= Self.voiceTicksRequired {
+                        self.voiceHeardInSession = true
                         ninoDbg("NINODBG silence-watch: voice heard at %.2fs live, keeping recording", live)
                         return
                     }
@@ -558,6 +583,14 @@ final class RecordingShortcutModeHandler {
         switch mode {
         case .toggle, .hybrid:
             if isHandsFreeRecording {
+                // Pressed again before saying anything: just make it go away quietly
+                // instead of stopping and transcribing an empty clip.
+                if isSilentHandsFreeRecording, recordingState() == .recording {
+                    ninoDbg("NINODBG silence-watch: second press with no voice, canceling")
+                    reset()
+                    await cancelRecording()
+                    return
+                }
                 isHandsFreeRecording = false
                 silenceAutoCancelTask?.cancel()
                 silenceAutoCancelTask = nil
